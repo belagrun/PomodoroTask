@@ -91,7 +91,7 @@ class TimerService {
 
     startSession(task: { file: TFile, line: number, text: string }, type: 'WORK' | 'BREAK', overrides?: { workDuration?: number, shortBreakDuration?: number }) {
         let duration = 0;
-        
+
         if (type === 'WORK') {
             duration = overrides?.workDuration ?? this.plugin.settings.workDuration;
         } else {
@@ -179,7 +179,7 @@ class TimerService {
         } else if (this.state.state === 'BREAK') {
             this.state.duration = shortBreak;
         }
-        
+
         // Save and refresh
         this.saveState();
         this.plugin.refreshView();
@@ -337,9 +337,9 @@ class CycleConfigModal extends Modal {
         // Custom UI implementation for better UX
         const { contentEl } = this;
         contentEl.empty();
-        
+
         contentEl.createEl('h3', { text: 'Cycle Configuration', attr: { style: 'text-align: center; margin-bottom: 20px;' } });
-        
+
         const container = contentEl.createDiv({ cls: 'pomodoro-config-modal-container' });
 
         // Work Section
@@ -363,26 +363,26 @@ class CycleConfigModal extends Modal {
 
     createConfigSection(container: HTMLElement, label: string, initialValue: number, presets: number[], onChange: (val: number) => void) {
         const section = container.createDiv({ cls: 'pomodoro-config-section' });
-        
+
         // Header with Label
         section.createDiv({ cls: 'pomodoro-config-label', text: label });
 
         // Input Row
         const inputRow = section.createDiv({ cls: 'pomodoro-input-row' });
-        
+
         // The actual input
         const input = inputRow.createEl('input', { type: 'number', cls: 'pomodoro-time-input' });
         input.value = String(initialValue);
-        
+
         inputRow.createSpan({ text: 'minutes', cls: 'pomodoro-unit' });
 
         input.onchange = () => {
-             const val = Number(input.value);
-             if (!isNaN(val) && val > 0) {
-                 onChange(val);
-                 // clear active chips
-                 section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
-             }
+            const val = Number(input.value);
+            if (!isNaN(val) && val > 0) {
+                onChange(val);
+                // clear active chips
+                section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
+            }
         };
 
         // Presets
@@ -390,12 +390,12 @@ class CycleConfigModal extends Modal {
         presets.forEach(val => {
             const chip = presetsRow.createEl('span', { text: String(val), cls: 'pomodoro-preset-chip' });
             if (val === initialValue) chip.addClass('is-active');
-            
+
             chip.onclick = () => {
                 // Update Logic
                 onChange(val);
                 input.value = String(val);
-                
+
                 // Visual Selection
                 section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
                 chip.addClass('is-active');
@@ -411,10 +411,10 @@ class CycleConfigModal extends Modal {
         // Let's force a flex column or just append a div that breaks.
         // However, standard Obs settings are row-based.
         // A cleaner way is to inject the chips container *after* the input, or wrap the input and chips in a col.
-        
+
         // Simplest: just append to controlEl and assume flex-wrap or block.
         // Let's set the container (controlEl) to allow wrapping if needed, but it's usually flex-end.
-        
+
         // Let's try appending a specific container for chips.
         const chipContainer = container.createDiv({ cls: 'pomodoro-duration-chips' });
         // Force it to break into new line? 'justify-content: flex-end' in CSS handles alignment.
@@ -441,6 +441,7 @@ export class PomodoroView extends ItemView {
     plugin: PomodoroTaskPlugin;
     showSubtasks: boolean;
     floatingStats: HTMLElement | null = null;
+    currentZoom: number = 1.0;
     
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
@@ -452,10 +453,16 @@ export class PomodoroView extends ItemView {
     getDisplayText() { return "Pomodoro Task"; }
 
     async onOpen() {
-        this.render();
-    }
+        this.contentEl.addEventListener('wheel', (evt: WheelEvent) => {
+            if (evt.ctrlKey) {
+                evt.preventDefault();
+                const delta = evt.deltaY > 0 ? -0.1 : 0.1;
+                this.currentZoom = Math.min(Math.max(0.5, this.currentZoom + delta), 2.5);
+                // @ts-ignore
+                this.contentEl.style.zoom = this.currentZoom;
+            }
+        }, { passive: false });
 
-    async onClose() { 
         if (this.floatingStats) {
             this.floatingStats.remove();
             this.floatingStats = null;
@@ -502,8 +509,8 @@ export class PomodoroView extends ItemView {
         } else {
             // Clean up global float if entering IDLE or non-timer state
             if (state.state === 'IDLE' && this.floatingStats) {
-                 this.floatingStats.remove();
-                 this.floatingStats = null;
+                this.floatingStats.remove();
+                this.floatingStats = null;
             }
 
             container.empty();
@@ -644,8 +651,8 @@ export class PomodoroView extends ItemView {
         refreshBtn.style.marginRight = '12px';
 
         refreshBtn.onclick = (e) => {
-             e.stopPropagation();
-             this.render();
+            e.stopPropagation();
+            this.render();
         };
 
         // Toggle indicator
@@ -714,7 +721,7 @@ export class PomodoroView extends ItemView {
         const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop' });
         stopBtn.onclick = () => this.plugin.timerService.stopSession();
 
-        const extraControls = view.createDiv({ cls: 'pomodoro-controls-extra', attr: { style: 'margin-top: 10px; display: flex; gap: 10px;'} });
+        const extraControls = view.createDiv({ cls: 'pomodoro-controls-extra', attr: { style: 'margin-top: 10px; display: flex; gap: 10px;' } });
 
         const resetBtn = extraControls.createEl('button', { cls: 'pomodoro-btn', text: 'Reset' });
         resetBtn.style.fontSize = '0.8em';
@@ -880,23 +887,23 @@ export class PomodoroView extends ItemView {
 
             // Left Side (Icon + Potentially Tomato Count)
             const leftSide = item.createDiv({ cls: 'pomodoro-task-left' });
-            
+
             // Just use the Pomodoro count/icon if it exists, otherwise maybe a dot?
             // User: "🍅 2/4 a esquerda da pomodoro task... pode ser 🍅:: 1 ou até mesmo não ter nenhuma maça"
             // If match, show it. If not, show generic icon?
             if (tomatoCount) {
                 const countSpan = leftSide.createSpan({ cls: 'pomodoro-task-count-pill', text: tomatoCount });
             } else {
-                 const icon = leftSide.createDiv({ cls: 'pomodoro-task-icon' });
-                 setIcon(icon, 'circle'); 
+                const icon = leftSide.createDiv({ cls: 'pomodoro-task-icon' });
+                setIcon(icon, 'circle');
             }
 
             // Right Side (Text)
             const textContainer = item.createDiv({ cls: 'pomodoro-task-text-container' });
-            
+
             // Clean Text (Default visible)
             const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean', text: cleanText });
-            
+
             // Full Text (Hover visible)
             // We strip the [🍅:: ..] tag from the full text to avoid duplication if we want smoothness,
             // or just render raw. User asked "task sem as coisas do obsidian... quando done...".
@@ -1030,10 +1037,10 @@ export class PomodoroView extends ItemView {
 
         // Create or Update Floating Stats
         if (!this.floatingStats) {
-             this.floatingStats = createDiv({ cls: 'pomodoro-floating-stats' });
-             document.body.appendChild(this.floatingStats);
+            this.floatingStats = createDiv({ cls: 'pomodoro-floating-stats' });
+            document.body.appendChild(this.floatingStats);
         }
-        
+
         // Update content: Icon + Text
         // Icon: Plug for check ? Or use the check circle?
         // User requested: (3,40) style. Actually (20 of 40 tasks).
@@ -1044,11 +1051,11 @@ export class PomodoroView extends ItemView {
         // Let's keep it simple: "Tasks: 20 / 40" or just "20 / 40".
         // Let's use a small icon + numbers.
         this.floatingStats.empty();
-        
+
         // Icon
         const iconSpan = this.floatingStats.createSpan({ cls: 'pomodoro-floating-icon' });
         setIcon(iconSpan, 'check-circle-2'); // Small check icon
-        
+
         // Text
         const textSpan = this.floatingStats.createSpan();
         textSpan.innerText = `${totalPending} / ${totalSubtasks}`;
@@ -1068,7 +1075,7 @@ export class PomodoroView extends ItemView {
             });
 
             if (oldList) oldList.remove();
-            if (oldMsg) oldMsg.remove(); 
+            if (oldMsg) oldMsg.remove();
             return;
         }
 
@@ -1315,12 +1322,12 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.workDuration = Number(value);
                     await this.plugin.saveAllData();
                 }));
-        
+
         // Add chips to the main container, so they appear below the setting row
         this.addDurationChips(containerEl, [1, 5, 10, 15, 20, 25, 30, 45, 60], async (val) => {
             this.plugin.settings.workDuration = val;
             const input = workSetting.controlEl.querySelector('input');
-            if(input) input.value = String(val);
+            if (input) input.value = String(val);
             await this.plugin.saveAllData();
         });
 
@@ -1334,11 +1341,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.shortBreakDuration = Number(value);
                     await this.plugin.saveAllData();
                 }));
-        
+
         this.addDurationChips(containerEl, [1, 2, 3, 5, 10, 15], async (val) => {
             this.plugin.settings.shortBreakDuration = val;
             const input = shortBreakSetting.controlEl.querySelector('input');
-            if(input) input.value = String(val);
+            if (input) input.value = String(val);
             await this.plugin.saveAllData();
         });
 
@@ -1352,12 +1359,12 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.longBreakDuration = Number(value);
                     await this.plugin.saveAllData();
                 }));
-        
+
         this.addDurationChips(containerEl, [10, 15, 20, 25, 30, 45, 60], async (val) => {
-             this.plugin.settings.longBreakDuration = val;
-             const input = longBreakSetting.controlEl.querySelector('input');
-             if(input) input.value = String(val);
-             await this.plugin.saveAllData();
+            this.plugin.settings.longBreakDuration = val;
+            const input = longBreakSetting.controlEl.querySelector('input');
+            if (input) input.value = String(val);
+            await this.plugin.saveAllData();
         });
 
 
