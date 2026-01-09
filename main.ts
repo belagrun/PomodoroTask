@@ -1334,6 +1334,53 @@ export class PomodoroView extends ItemView {
 
             // Clean Text (Default visible) - Use Markdown Render
             const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean' });
+
+            // Detect Dataview or heavy script usage that causes delay/flash
+            const isDataview = /\$=|::|`/.test(task.text);
+            
+            if (isDataview) {
+                 // Add loading spinner
+                 const loader = item.createDiv({ cls: 'pomodoro-loader-overlay' });
+                 loader.createDiv({ cls: 'pomodoro-loader-spinner' });
+
+                 // Hide content initially to prevent flash of raw code
+                 cleanSpan.style.display = 'none'; 
+
+                 // Use MutationObserver to detect DOM changes (script rendering)
+                 const observer = new MutationObserver((mutations) => {
+                     const currentText = cleanSpan.innerText || "";
+                     
+                     // Stronger check: If it contains "$=" or "::" followed by letters, it's likely still raw code.
+                     const hasRawDataview = /\$=/.test(currentText);
+                     const hasRawInline = /::/.test(currentText); // Might be legitimate text, but often dataview key::value
+
+                     // We consider it "ready" when:
+                     // 1. We have content (children > 0)
+                     // 2. The obvious raw markers ($=) are gone.
+                     if (cleanSpan.childElementCount > 0 && !hasRawDataview) {
+                         cleanSpan.style.display = '';
+                         cleanSpan.animate([
+                            { opacity: 0 },
+                            { opacity: 1 }
+                         ], { duration: 200 });
+                         
+                         if(loader.parentElement) loader.remove();
+                         observer.disconnect();
+                     }
+                 });
+                 
+                 observer.observe(cleanSpan, { childList: true, subtree: true, characterData: true });
+
+                 // Fallback timeout extended to 4s for slower Dataview queries
+                 setTimeout(() => {
+                     if (cleanSpan.style.display === 'none') {
+                        cleanSpan.style.display = '';
+                        if(loader.parentElement) loader.remove();
+                        observer.disconnect();
+                     }
+                 }, 4000); 
+            }
+
             MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, this);
 
             // Full Text (Hover visible) - Display clearer text with metadata

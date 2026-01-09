@@ -402,3 +402,33 @@
     font-size: 1em;
 }
 
+/* Loading Spinner */
+.pomodoro-loader-overlay {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    background: rgba(var(--mono-rgb-100), 0.5);
+    padding: 2px;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+.pomodoro-loader-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--text-muted);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: pomodoro-spin 0.8s linear infinite;
+}
+
+@keyframes pomodoro-spin {
+    to { transform: rotate(360deg); }
+}
+
+.pomodoro-task-item {
+    position: relative; /* For absolute positioning of loader */
+}
