@@ -8,6 +8,7 @@ interface PomodoroTaskSettings {
     shortBreakDuration: number;
     longBreakDuration: number;
     subtaskCount: number;
+    enableSubtaskLimit: boolean;
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
@@ -15,7 +16,8 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     workDuration: 25,
     shortBreakDuration: 5,
     longBreakDuration: 15,
-    subtaskCount: 3
+    subtaskCount: 3,
+    enableSubtaskLimit: true
 }
 
 interface PomodoroSession {
@@ -380,6 +382,7 @@ export class PomodoroView extends ItemView {
         const lines = content.split('\n');
         const tag = this.plugin.settings.tag.trim();
         const limit = this.plugin.settings.subtaskCount;
+        const useLimit = this.plugin.settings.enableSubtaskLimit;
         
         // 1. Locate the main task line freshly to handle file edits
         let currentTaskLine = state.taskLine;
@@ -424,7 +427,7 @@ export class PomodoroView extends ItemView {
 
             if (isTaskLine) {
                 // It is an unchecked task
-                if (collectedUnchecked < limit) {
+                if (!useLimit || collectedUnchecked < limit) {
                     subtasks.push({
                         line: i,
                         text: line.replace(taskRegex, '').trim(),
@@ -458,9 +461,6 @@ export class PomodoroView extends ItemView {
         }
 
         const listDiv = container.createDiv({ cls: 'pomodoro-subtask-list' });
-        listDiv.style.marginTop = '15px';
-        listDiv.style.borderTop = '1px solid var(--background-modifier-border)';
-        listDiv.style.paddingTop = '10px';
 
         subtasks.forEach(task => {
             const row = listDiv.createDiv({ cls: 'pomodoro-subtask-row' });
@@ -712,9 +712,21 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
 				}));
 
-        new Setting(containerEl)
-            .setName('Subtasks per Session')
-            .setDesc('How many subtasks to show in the timer view')
+        const limitSetting = new Setting(containerEl)
+            .setName('Limit Subtasks Shown')
+            .setDesc('Toggle to limit the number of subtasks displayed in the view')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.enableSubtaskLimit)
+                .onChange(async (value) => {
+                    this.plugin.settings.enableSubtaskLimit = value;
+                    await this.plugin.saveAllData();
+                    // Update visibility of the count setting
+                    countSetting.settingEl.style.display = value ? 'flex' : 'none';
+                }));
+
+        const countSetting = new Setting(containerEl)
+            .setName('Max Subtasks')
+            .setDesc('Maximum number of subtasks to show')
             .addText(text => text
                 .setPlaceholder('3')
                 .setValue(String(this.plugin.settings.subtaskCount))
@@ -722,5 +734,8 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.subtaskCount = Number(value);
                     await this.plugin.saveAllData();
                 }));
+        
+        // Initial visibility
+        countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
 	}
 }

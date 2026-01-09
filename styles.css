@@ -62,8 +62,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start; /* Changed from center to prevent clipping */
     height: 100%;
+    overflow-y: auto; /* Enable scrolling */
+    padding-top: 20px; /* Add some spacing from top */
 }
 
 .pomodoro-active-task-card {
@@ -136,6 +138,20 @@
 .pomodoro-stat-item {
     display: flex;
     flex-direction: column;
+}
+
+.pomodoro-subtask-list {
+    width: 100%;
+    max-width: 400px; /* Match typical card width or reasonable limit */
+    margin-top: 15px;
+    /* Styles moved from inline in main.ts */
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 10px;
+}
+
+.pomodoro-subtask-row {
+    padding: 4px 0;
+    width: 100%;
 }
 
 .pomodoro-stat-value {
