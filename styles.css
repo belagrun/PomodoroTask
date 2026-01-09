@@ -328,7 +328,18 @@
     margin-top: 4px;
 }
 
-.pomodoro-preset-chip {
+/* Also support the duration chips container in Settings Tab */
+.pomodoro-duration-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 20px; /* Space before next setting */
+    padding-left: 20px; /* Indent to align with setting text if needed, or remove */
+}
+
+.pomodoro-preset-chip, .pomodoro-chip {
     font-size: 0.75em;
     font-weight: 500;
     padding: 4px 10px;
@@ -340,14 +351,15 @@
     transition: all 0.2s ease;
 }
 
-.pomodoro-preset-chip:hover {
+.pomodoro-preset-chip:hover, .pomodoro-chip:hover {
     background-color: var(--background-modifier-hover);
     color: var(--text-normal);
     transform: translateY(-1px);
 }
 
 .pomodoro-preset-chip.is-active,
-.pomodoro-preset-chip:active {
+.pomodoro-preset-chip:active,
+.pomodoro-chip:active {
     background-color: var(--interactive-accent); /* Greenish usually */
     color: var(--text-on-accent);
     font-weight: 600;
