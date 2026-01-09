@@ -158,7 +158,7 @@ class TimerService {
 
     getTimeLeft(): number { // in seconds
         if (!this.state.startTime) return 0;
-        
+
         const now = this.state.pausedTime || Date.now();
         const elapsedSec = (now - this.state.startTime) / 1000;
         const totalSec = this.state.duration * 60;
@@ -271,7 +271,7 @@ export class PomodoroView extends ItemView {
         header.style.alignItems = 'center';
 
         const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
-        
+
         if (state.pausedTime) {
             label.innerText = '⏸️ PAUSED';
             label.style.opacity = '1.0';
@@ -279,7 +279,7 @@ export class PomodoroView extends ItemView {
         } else {
             label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
         }
-        
+
         // Toggle indicator
         if (state.state === 'WORK') {
             const toggleIcon = header.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
@@ -330,11 +330,11 @@ export class PomodoroView extends ItemView {
 
         // Pause/Resume Button
         if (state.pausedTime) {
-             const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ Resume' });
-             resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+            const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ Resume' });
+            resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
         } else {
-             const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ Pause' });
-             pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+            const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ Pause' });
+            pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
         }
 
         const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / Cancel' });
