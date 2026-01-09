@@ -272,6 +272,32 @@ export class PomodoroView extends ItemView {
 
     async onClose() { }
 
+    cleanTaskText(text: string): string {
+        if (!text) return "";
+        let clean = text;
+
+        // 1. Remove Pomodoro Counter
+        clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
+
+        // 2. Remove Tags (#tag, #tag/subtag)
+        clean = clean.replace(/#[\w\/-]+/g, '');
+
+        // 3. Remove Dataview fields
+        clean = clean.replace(/\[[^\]]+::.*?\]/g, ''); 
+
+        // 4. Aggressive Cut: Remove everything including and to the right of any Obsidian Tasks symbol
+        // Symbols: 🔁 (recurrence), 🏁 (flag), 📅 (due), ⏳ (scheduled), 🛫 (start), ✅ (done), ➕ (created)
+        // Priorities: 🔺, ⏫, 🔽
+        const splitRegex = /[🔁🏁📅⏳🛫✅➕🔺⏫🔽]/;
+        const index = clean.search(splitRegex);
+        if (index !== -1) {
+            clean = clean.substring(0, index);
+        }
+
+        // 5. Cleanup extra spaces
+        return clean.replace(/\s+/g, ' ').trim();
+    }
+
     render() {
         if (!this.containerEl) return;
         const container = this.containerEl.children[1];
@@ -392,14 +418,16 @@ export class PomodoroView extends ItemView {
             }
         };
 
-        // Task Text Container
+        // Text Container
         const textContainer = taskCard.createDiv({ cls: 'pomodoro-active-task-text-container' });
         textContainer.style.display = 'flex';
         textContainer.style.justifyContent = 'space-between';
         textContainer.style.alignItems = 'center';
 
-        // Truncate task text if too long
-        const displayText = state.taskText.length > 60 ? state.taskText.substring(0, 60) + '...' : state.taskText;
+        // Clean and Truncate task text
+        const cleanedText = this.cleanTaskText(state.taskText);
+        const displayText = cleanedText.length > 60 ? cleanedText.substring(0, 60) + '...' : cleanedText;
+        
         textContainer.createDiv({ text: displayText, cls: 'pomodoro-active-task-text' });
 
         // Link Icon
