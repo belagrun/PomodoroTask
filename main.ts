@@ -334,34 +334,97 @@ class CycleConfigModal extends Modal {
     }
 
     onOpen() {
+        // Custom UI implementation for better UX
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: 'Cycle Configuration (Current Task Only)' });
-
+        contentEl.empty();
         
-        new Setting(contentEl)
-            .setName('Work Duration (m)')
-            .addText(text => text
-                .setValue(String(this.workDuration))
-                .onChange(value => {
-                    this.workDuration = Number(value);
-                }));
+        contentEl.createEl('h3', { text: 'Cycle Configuration', attr: { style: 'text-align: center; margin-bottom: 20px;' } });
+        
+        const container = contentEl.createDiv({ cls: 'pomodoro-config-modal-container' });
 
-        new Setting(contentEl)
-            .setName('Short Break Duration (m)')
-            .addText(text => text
-                .setValue(String(this.shortBreakDuration))
-                .onChange(value => {
-                    this.shortBreakDuration = Number(value);
-                }));
+        // Work Section
+        this.createConfigSection(container, 'Focus Duration', this.workDuration, [5, 10, 15, 20, 25, 30, 45, 50, 60], (val) => {
+            this.workDuration = val;
+        });
 
-        new Setting(contentEl)
-            .addButton(btn => btn
-                .setButtonText('Apply to Current Task')
-                .setCta()
-                .onClick(() => {
-                    this.plugin.timerService.applyOverrides(this.workDuration, this.shortBreakDuration);
-                    this.close();
-                }));
+        // Break Section
+        this.createConfigSection(container, 'Short Break', this.shortBreakDuration, [3, 5, 10, 15, 20], (val) => {
+            this.shortBreakDuration = val;
+        });
+
+        // Footer
+        const footer = contentEl.createDiv({ attr: { style: 'margin-top: 20px; display: flex; justify-content: center;' } });
+        const applyBtn = footer.createEl('button', { text: 'Apply Changes', cls: 'mod-cta pomodoro-apply-btn' });
+        applyBtn.onclick = () => {
+            this.plugin.timerService.applyOverrides(this.workDuration, this.shortBreakDuration);
+            this.close();
+        };
+    }
+
+    createConfigSection(container: HTMLElement, label: string, initialValue: number, presets: number[], onChange: (val: number) => void) {
+        const section = container.createDiv({ cls: 'pomodoro-config-section' });
+        
+        // Header with Label
+        section.createDiv({ cls: 'pomodoro-config-label', text: label });
+
+        // Input Row
+        const inputRow = section.createDiv({ cls: 'pomodoro-input-row' });
+        
+        // The actual input
+        const input = inputRow.createEl('input', { type: 'number', cls: 'pomodoro-time-input' });
+        input.value = String(initialValue);
+        
+        inputRow.createSpan({ text: 'minutes', cls: 'pomodoro-unit' });
+
+        input.onchange = () => {
+             const val = Number(input.value);
+             if (!isNaN(val) && val > 0) {
+                 onChange(val);
+                 // clear active chips
+                 section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
+             }
+        };
+
+        // Presets
+        const presetsRow = section.createDiv({ cls: 'pomodoro-presets-row' });
+        presets.forEach(val => {
+            const chip = presetsRow.createEl('span', { text: String(val), cls: 'pomodoro-preset-chip' });
+            if (val === initialValue) chip.addClass('is-active');
+            
+            chip.onclick = () => {
+                // Update Logic
+                onChange(val);
+                input.value = String(val);
+                
+                // Visual Selection
+                section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
+                chip.addClass('is-active');
+            };
+        });
+    }
+
+    addDurationChips(container: HTMLElement, presets: number[], onClick: (val: number) => void) {
+        // We want the chips to be under the input.
+        // The container provided by Setting is usually a flex row.
+        // We can append a div to it, but it might mess up layout unless we structure it.
+        // Actually, Setting.controlEl contains the input. If we append there, it might be side-by-side or weird.
+        // Let's force a flex column or just append a div that breaks.
+        // However, standard Obs settings are row-based.
+        // A cleaner way is to inject the chips container *after* the input, or wrap the input and chips in a col.
+        
+        // Simplest: just append to controlEl and assume flex-wrap or block.
+        // Let's set the container (controlEl) to allow wrapping if needed, but it's usually flex-end.
+        
+        // Let's try appending a specific container for chips.
+        const chipContainer = container.createDiv({ cls: 'pomodoro-duration-chips' });
+        // Force it to break into new line? 'justify-content: flex-end' in CSS handles alignment.
+        // But to put it *under*, we might need the parent to wrap.
+        container.style.flexWrap = 'wrap';
+
+        presets.forEach(val => {
+            const chip = chipContainer.createEl('button', { text: String(val), cls: 'pomodoro-chip' });
+            chip.onclick = () => onClick(val);
+        });
     }
 
     onClose() {
@@ -1180,6 +1243,16 @@ class PomodoroSettingTab extends PluginSettingTab {
         this.plugin = plugin;
     }
 
+    addDurationChips(container: HTMLElement, presets: number[], onClick: (val: number) => void) {
+        // Create a dedicated div BELOW the setting row
+        const chipContainer = container.createDiv({ cls: 'pomodoro-duration-chips' });
+
+        presets.forEach(val => {
+            const chip = chipContainer.createEl('span', { text: String(val), cls: 'pomodoro-chip' });
+            chip.onclick = () => onClick(val);
+        });
+    }
+
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
@@ -1198,7 +1271,7 @@ class PomodoroSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h3', { text: 'Durations (minutes)' });
 
-        new Setting(containerEl)
+        const workSetting = new Setting(containerEl)
             .setName('Work Duration')
             .setDesc('How long is a focus session?')
             .addText(text => text
@@ -1208,8 +1281,16 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.workDuration = Number(value);
                     await this.plugin.saveAllData();
                 }));
+        
+        // Add chips to the main container, so they appear below the setting row
+        this.addDurationChips(containerEl, [1, 5, 10, 15, 20, 25, 30, 45, 60], async (val) => {
+            this.plugin.settings.workDuration = val;
+            const input = workSetting.controlEl.querySelector('input');
+            if(input) input.value = String(val);
+            await this.plugin.saveAllData();
+        });
 
-        new Setting(containerEl)
+        const shortBreakSetting = new Setting(containerEl)
             .setName('Short Break')
             .setDesc('Duration of a short break')
             .addText(text => text
@@ -1219,8 +1300,15 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.shortBreakDuration = Number(value);
                     await this.plugin.saveAllData();
                 }));
+        
+        this.addDurationChips(containerEl, [1, 2, 3, 5, 10, 15], async (val) => {
+            this.plugin.settings.shortBreakDuration = val;
+            const input = shortBreakSetting.controlEl.querySelector('input');
+            if(input) input.value = String(val);
+            await this.plugin.saveAllData();
+        });
 
-        new Setting(containerEl)
+        const longBreakSetting = new Setting(containerEl)
             .setName('Long Break')
             .setDesc('Duration of a long break')
             .addText(text => text
@@ -1230,6 +1318,14 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.longBreakDuration = Number(value);
                     await this.plugin.saveAllData();
                 }));
+        
+        this.addDurationChips(containerEl, [10, 15, 20, 25, 30, 45, 60], async (val) => {
+             this.plugin.settings.longBreakDuration = val;
+             const input = longBreakSetting.controlEl.querySelector('input');
+             if(input) input.value = String(val);
+             await this.plugin.saveAllData();
+        });
+
 
         new Setting(containerEl)
             .setName('Default Subtasks Expanded')

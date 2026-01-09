@@ -222,6 +222,98 @@
     gap: 6px;
 }
 
-.theme-dark .pomodoro-floating-stats {
-     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+
+/* Cycle Config Modal - Custom UI */
+.pomodoro-config-modal-container {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
+
+.pomodoro-config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pomodoro-config-label {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pomodoro-input-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--background-secondary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.pomodoro-time-input {
+    background: transparent !important;
+    border: none !important;
+    font-size: 1.5em !important;
+    font-weight: bold !important;
+    width: 80px !important;
+    text-align: right;
+    padding: 0 !important;
+    color: var(--text-normal) !important;
+}
+
+.pomodoro-time-input:focus {
+    box-shadow: none !important;
+}
+
+.pomodoro-unit {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.pomodoro-presets-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center; /* Center presets */
+    margin-top: 4px;
+}
+
+.pomodoro-preset-chip {
+    font-size: 0.75em;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background-color: var(--background-secondary-alt);
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pomodoro-preset-chip:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    transform: translateY(-1px);
+}
+
+.pomodoro-preset-chip.is-active,
+.pomodoro-preset-chip:active {
+    background-color: var(--interactive-accent); /* Greenish usually */
+    color: var(--text-on-accent);
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.pomodoro-apply-btn {
+    width: 100%;
+    margin-top: 10px;
+    height: 40px;
+    font-size: 1em;
+}
+
