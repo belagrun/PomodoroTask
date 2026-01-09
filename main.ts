@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     showCompletedToday: false
 }
 
+
 interface PomodoroSession {
     state: 'IDLE' | 'WORK' | 'BREAK';
     startTime: number | null; // Timestamp
@@ -36,6 +37,10 @@ interface PomodoroSession {
     taskText: string;
     completedSubtasks: string[]; // List of subtask texts completed in this session
     pausedTime?: number | null; // Timestamp when paused
+    overrides?: {
+        workDuration?: number;
+        shortBreakDuration?: number;
+    }
 }
 
 interface PomodoroStats {
@@ -84,10 +89,14 @@ class TimerService {
         await this.plugin.saveAllData();
     }
 
-    startSession(task: { file: TFile, line: number, text: string }, type: 'WORK' | 'BREAK') {
-        const duration = type === 'WORK'
-            ? this.plugin.settings.workDuration
-            : this.plugin.settings.shortBreakDuration;
+    startSession(task: { file: TFile, line: number, text: string }, type: 'WORK' | 'BREAK', overrides?: { workDuration?: number, shortBreakDuration?: number }) {
+        let duration = 0;
+        
+        if (type === 'WORK') {
+            duration = overrides?.workDuration ?? this.plugin.settings.workDuration;
+        } else {
+            duration = overrides?.shortBreakDuration ?? this.plugin.settings.shortBreakDuration;
+        }
 
         this.state = {
             state: type,
@@ -97,7 +106,8 @@ class TimerService {
             taskLine: task.line,
             taskFile: task.file.path,
             taskText: task.text,
-            completedSubtasks: []
+            completedSubtasks: [],
+            overrides: overrides
         };
         this.saveState();
         this.startTick();
@@ -153,6 +163,59 @@ class TimerService {
             // Update UI every second
             this.plugin.updateTimerUI();
         }, 1000);
+    }
+
+    applyOverrides(work: number, shortBreak: number) {
+        // Save overrides
+        this.state.overrides = {
+            workDuration: work,
+            shortBreakDuration: shortBreak
+        };
+
+        // If currently running, update the current Duration accordingly
+        // We only update if the duration logic matches the current state
+        if (this.state.state === 'WORK') {
+            this.state.duration = work;
+        } else if (this.state.state === 'BREAK') {
+            this.state.duration = shortBreak;
+        }
+        
+        // Save and refresh
+        this.saveState();
+        this.plugin.refreshView();
+        this.plugin.updateTimerUI();
+    }
+
+
+    resetSession() {
+        if (this.state.state !== 'IDLE') {
+            this.state.startTime = Date.now();
+            this.state.pausedTime = null;
+            this.saveState();
+            this.startTick();
+            this.plugin.refreshView();
+            this.plugin.updateTimerUI(); // Force immediate update of digits
+        }
+    }
+
+    switchMode() {
+        if (this.state.state !== 'IDLE') {
+            const nextType = this.state.state === 'WORK' ? 'BREAK' : 'WORK';
+            const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+
+            if (file instanceof TFile) {
+                // Pass existing overrides to the next session
+                this.startSession({
+                    file: file,
+                    line: this.state.taskLine,
+                    text: this.state.taskText
+                }, nextType, this.state.overrides);
+            } else {
+                // If file is missing (deleted?), we can't easily restart with context.
+                // Just stop.
+                this.stopSession();
+            }
+        }
     }
 
     clearInterval() {
@@ -253,6 +316,57 @@ class TimerService {
                 }
             }
         }
+    }
+}
+
+class CycleConfigModal extends Modal {
+    plugin: PomodoroTaskPlugin;
+    workDuration: number;
+    shortBreakDuration: number;
+
+    constructor(app: App, plugin: PomodoroTaskPlugin) {
+        super(app);
+        this.plugin = plugin;
+        // Load current overrides or defaults
+        const overrides = this.plugin.timerService.state.overrides;
+        this.workDuration = overrides?.workDuration ?? this.plugin.settings.workDuration;
+        this.shortBreakDuration = overrides?.shortBreakDuration ?? this.plugin.settings.shortBreakDuration;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: 'Cycle Configuration (Current Task Only)' });
+
+        
+        new Setting(contentEl)
+            .setName('Work Duration (m)')
+            .addText(text => text
+                .setValue(String(this.workDuration))
+                .onChange(value => {
+                    this.workDuration = Number(value);
+                }));
+
+        new Setting(contentEl)
+            .setName('Short Break Duration (m)')
+            .addText(text => text
+                .setValue(String(this.shortBreakDuration))
+                .onChange(value => {
+                    this.shortBreakDuration = Number(value);
+                }));
+
+        new Setting(contentEl)
+            .addButton(btn => btn
+                .setButtonText('Apply to Current Task')
+                .setCta()
+                .onClick(() => {
+                    this.plugin.timerService.applyOverrides(this.workDuration, this.shortBreakDuration);
+                    this.close();
+                }));
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
     }
 }
 
@@ -534,8 +648,30 @@ export class PomodoroView extends ItemView {
             pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
         }
 
-        const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / Cancel' });
+        const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop' });
         stopBtn.onclick = () => this.plugin.timerService.stopSession();
+
+        const extraControls = view.createDiv({ cls: 'pomodoro-controls-extra', attr: { style: 'margin-top: 10px; display: flex; gap: 10px;'} });
+
+        const resetBtn = extraControls.createEl('button', { cls: 'pomodoro-btn', text: 'Reset' });
+        resetBtn.style.fontSize = '0.8em';
+        resetBtn.style.padding = '6px 12px';
+        resetBtn.style.opacity = '0.8';
+        resetBtn.onclick = () => this.plugin.timerService.resetSession();
+
+        const switchBtn = extraControls.createEl('button', { cls: 'pomodoro-btn', text: 'Switch' });
+        switchBtn.style.fontSize = '0.8em';
+        switchBtn.style.padding = '6px 12px';
+        switchBtn.style.opacity = '0.8';
+        switchBtn.onclick = () => this.plugin.timerService.switchMode();
+
+        const cycleBtn = extraControls.createEl('button', { cls: 'pomodoro-btn', text: 'Cycle' });
+        cycleBtn.style.fontSize = '0.8em';
+        cycleBtn.style.padding = '6px 12px';
+        cycleBtn.style.opacity = '0.8';
+        cycleBtn.onclick = () => new CycleConfigModal(this.plugin.app, this.plugin).open();
+
+
 
         // Subtasks Section
         if (state.state === 'WORK' && this.showSubtasks) {
