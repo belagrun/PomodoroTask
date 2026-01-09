@@ -423,8 +423,9 @@ export class PomodoroView extends ItemView {
 
         view.createDiv({ cls: 'pomodoro-timer-display', text: timeStr });
 
-        // Cycle Info - read from file to get current [🍅:: N/M] status
-        this.renderCycleInfo(view);
+        // Cycle Info container - create synchronously, populate async
+        const cycleInfoContainer = view.createDiv({ cls: 'pomodoro-cycle-info' });
+        this.populateCycleInfo(cycleInfoContainer);
 
         // Controls
         const controls = view.createDiv({ cls: 'pomodoro-controls' });
@@ -447,24 +448,31 @@ export class PomodoroView extends ItemView {
         }
     }
 
-    async renderCycleInfo(container: Element) {
+    async populateCycleInfo(cycleDiv: Element) {
         const { state } = this.plugin.timerService;
-        if (!state.taskFile) return;
+        if (!state.taskFile) {
+            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            return;
+        }
 
         const file = this.plugin.app.vault.getAbstractFileByPath(state.taskFile);
-        if (!(file instanceof TFile)) return;
+        if (!(file instanceof TFile)) {
+            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            return;
+        }
 
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
         const lineIdx = state.taskLine;
 
-        if (lineIdx >= lines.length) return;
+        if (lineIdx >= lines.length) {
+            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            return;
+        }
 
         const line = lines[lineIdx];
         const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
         const match = line.match(tomatoRegex);
-
-        const cycleDiv = container.createDiv({ cls: 'pomodoro-cycle-info' });
 
         if (match) {
             const currentCount = parseInt(match[1]);
