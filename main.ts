@@ -3,7 +3,7 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 // --- DATA MODELS ---
 
 interface PomodoroTaskSettings {
-	tag: string;
+    tag: string;
     workDuration: number; // minutes
     shortBreakDuration: number;
     longBreakDuration: number;
@@ -12,7 +12,7 @@ interface PomodoroTaskSettings {
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
-	tag: '#pomodoro',
+    tag: '#pomodoro',
     workDuration: 25,
     shortBreakDuration: 5,
     longBreakDuration: 15,
@@ -77,9 +77,9 @@ class TimerService {
         await this.plugin.saveAllData();
     }
 
-    startSession(task: {file: TFile, line: number, text: string}, type: 'WORK' | 'BREAK') {
-        const duration = type === 'WORK' 
-            ? this.plugin.settings.workDuration 
+    startSession(task: { file: TFile, line: number, text: string }, type: 'WORK' | 'BREAK') {
+        const duration = type === 'WORK'
+            ? this.plugin.settings.workDuration
             : this.plugin.settings.shortBreakDuration;
 
         this.state = {
@@ -100,14 +100,14 @@ class TimerService {
     stopSession() {
         this.clearInterval();
         this.state = {
-             state: 'IDLE',
-             startTime: null,
-             duration: 0,
-             taskId: null,
-             taskLine: -1,
-             taskFile: '',
-             completedSubtasks: [],
-             taskText: ''
+            state: 'IDLE',
+            startTime: null,
+            duration: 0,
+            taskId: null,
+            taskLine: -1,
+            taskFile: '',
+            completedSubtasks: [],
+            taskText: ''
         };
         this.saveState();
         this.plugin.refreshView();
@@ -121,7 +121,7 @@ class TimerService {
                 this.completeSession();
             }
             // Update UI every second
-            this.plugin.updateTimerUI(); 
+            this.plugin.updateTimerUI();
         }, 1000);
     }
 
@@ -141,7 +141,7 @@ class TimerService {
 
     async completeSession() {
         this.clearInterval();
-        
+
         // Log to file if it was a WORK session
         if (this.state.state === 'WORK') {
             await this.logCompletion();
@@ -151,12 +151,12 @@ class TimerService {
             await this.plugin.saveAllData();
 
             new Notice("Pomodoro Finished! Time for a break.");
-            
+
             this.stopSession();
 
         } else {
-             new Notice("Break Finished! Ready to work?");
-             this.stopSession();
+            new Notice("Break Finished! Ready to work?");
+            this.stopSession();
         }
     }
 
@@ -167,7 +167,7 @@ class TimerService {
             const content = await this.plugin.app.vault.read(file);
             const lines = content.split('\n');
             const lineIdx = this.state.taskLine;
-            
+
             // Check boundaries
             if (lineIdx < lines.length) {
                 // Formatting: ... ✅ 2026-01-09 14:00 [duration:: 25m]
@@ -175,13 +175,13 @@ class TimerService {
                 const dateStr = now.toISOString().split('T')[0];
                 const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
                 const completionText = ` ✅ ${dateStr} ${timeStr} [duration:: ${this.state.duration}m]`;
-                
+
                 let line = lines[lineIdx];
                 // Check if line looks like our task (basic check)
                 // Relaxed check: just check if it contains part of the text
-                if (line.includes(this.state.taskText.substring(0, 5))) { 
-                     lines[lineIdx] = line + completionText;
-                     await this.plugin.app.vault.modify(file, lines.join('\n'));
+                if (line.includes(this.state.taskText.substring(0, 5))) {
+                    lines[lineIdx] = line + completionText;
+                    await this.plugin.app.vault.modify(file, lines.join('\n'));
                 } else {
                     new Notice("Task line changed? Could not log time to the exact line.");
                 }
@@ -213,9 +213,9 @@ export class PomodoroView extends ItemView {
     async onClose() { }
 
     render() {
-        if(!this.containerEl) return;
+        if (!this.containerEl) return;
         const container = this.containerEl.children[1];
-        if(!container) return;
+        if (!container) return;
 
         container.empty();
         container.addClass('pomodoro-view-container');
@@ -233,11 +233,11 @@ export class PomodoroView extends ItemView {
     renderTimer(container: Element) {
         const { state } = this.plugin.timerService;
         const view = container.createDiv({ cls: 'pomodoro-timer-view' });
-        
+
         // Active Task Card
         const taskCard = view.createDiv({ cls: 'pomodoro-active-task-card' });
-        
-         // Header (Clickable for subtasks)
+
+        // Header (Clickable for subtasks)
         const header = taskCard.createDiv({ cls: 'pomodoro-active-task-header' });
         header.style.cursor = 'pointer';
         header.style.display = 'flex';
@@ -245,14 +245,14 @@ export class PomodoroView extends ItemView {
         header.style.alignItems = 'center';
 
         const label = header.createDiv({ cls: 'pomodoro-active-task-label', text: state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK' });
-        
+
         // Toggle indicator
         if (state.state === 'WORK') {
             const toggleIcon = header.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
             toggleIcon.style.fontSize = '0.8em';
             toggleIcon.style.opacity = '0.7';
         }
-        
+
         header.onclick = () => {
             if (state.state === 'WORK') {
                 this.showSubtasks = !this.showSubtasks;
@@ -270,7 +270,7 @@ export class PomodoroView extends ItemView {
         const displayText = state.taskText.length > 60 ? state.taskText.substring(0, 60) + '...' : state.taskText;
         textContainer.createDiv({ text: displayText, cls: 'pomodoro-active-task-text' });
 
-         // Link Icon
+        // Link Icon
         const linkBtn = textContainer.createEl('button', { cls: 'pomodoro-link-btn', text: '🔗' });
         linkBtn.classList.add('clickable-icon');
         linkBtn.style.background = 'none';
@@ -309,7 +309,7 @@ export class PomodoroView extends ItemView {
         header.style.alignItems = 'center';
 
         header.createEl('h4', { text: '🎯 Active Tasks' });
-        
+
         const refreshBtn = header.createEl('button', { text: '↻' });
         refreshBtn.classList.add('clickable-icon');
         refreshBtn.ariaLabel = 'Refresh List';
@@ -319,21 +319,21 @@ export class PomodoroView extends ItemView {
         let file = this.plugin.app.workspace.getActiveFile();
         if (!file) {
             // Try to find a markdown view
-             const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-             if (view) file = view.file;
+            const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+            if (view) file = view.file;
         }
 
         if (!file) {
-            container.createEl('p', { 
-                text: 'Open a markdown file to see tasks.', 
-                attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' } 
+            container.createEl('p', {
+                text: 'Open a markdown file to see tasks.',
+                attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' }
             });
             return;
         }
 
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
-        const tasks: {line: number, text: string}[] = [];
+        const tasks: { line: number, text: string }[] = [];
         const tag = this.plugin.settings.tag.trim();
 
         // Use regex for checking incomplete tasks (- [ ] or * [ ])
@@ -341,33 +341,33 @@ export class PomodoroView extends ItemView {
 
         lines.forEach((line, index) => {
             if (taskRegex.test(line) && line.includes(tag)) {
-                tasks.push({ 
-                    line: index, 
-                    text: line.replace(taskRegex, '').replace(tag, '').trim() 
+                tasks.push({
+                    line: index,
+                    text: line.replace(taskRegex, '').replace(tag, '').trim()
                 });
             }
         });
 
         if (tasks.length === 0) {
-            container.createEl('p', { 
+            container.createEl('p', {
                 text: `No tasks found with tag ${tag}`,
-                attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' } 
+                attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' }
             });
             return;
         }
 
         const list = container.createDiv({ cls: 'pomodoro-task-list' });
         tasks.forEach(task => {
-           const item = list.createDiv({ cls: 'pomodoro-task-item' });
-           
-           const icon = item.createDiv({ cls: 'pomodoro-task-icon' });
-           setIcon(icon, 'circle'); // Obsidian icon
+            const item = list.createDiv({ cls: 'pomodoro-task-item' });
 
-           const text = item.createDiv({ cls: 'pomodoro-task-text', text: task.text });
-           
-           item.addEventListener('click', () => {
-               this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
-           });
+            const icon = item.createDiv({ cls: 'pomodoro-task-icon' });
+            setIcon(icon, 'circle'); // Obsidian icon
+
+            const text = item.createDiv({ cls: 'pomodoro-task-text', text: task.text });
+
+            item.addEventListener('click', () => {
+                this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
+            });
         });
     }
 
@@ -383,11 +383,11 @@ export class PomodoroView extends ItemView {
         const tag = this.plugin.settings.tag.trim();
         const limit = this.plugin.settings.subtaskCount;
         const useLimit = this.plugin.settings.enableSubtaskLimit;
-        
+
         // 1. Locate the main task line freshly to handle file edits
         let currentTaskLine = state.taskLine;
-        const cleanTaskText = state.taskText.substring(0, 15); 
-        
+        const cleanTaskText = state.taskText.substring(0, 15);
+
         // Use a clean check (fuzzy)
         if (currentTaskLine >= lines.length || !lines[currentTaskLine].includes(cleanTaskText)) {
             // It moved or line changed significantly. Scan for it.
@@ -404,17 +404,17 @@ export class PomodoroView extends ItemView {
             text: string;
             completed: boolean;
         }
-        
+
         const subtasks: SubtaskItem[] = [];
-        const taskRegex = /^\s*[-*] \[ \]/; 
+        const taskRegex = /^\s*[-*] \[ \]/;
         const completedRegex = /^\s*[-*] \[x\]/i;
-        
+
         let collectedUnchecked = 0;
 
         // 2. Scan lines BELOW the main task
         for (let i = currentTaskLine + 1; i < lines.length; i++) {
             const line = lines[i];
-            
+
             // Stop conditions
             // We stop only if we encounter another task with the same Pomodoro tag.
             // checking simple include can be dangerous if tag is used in text.
@@ -422,7 +422,7 @@ export class PomodoroView extends ItemView {
             const isCompletedLine = completedRegex.test(line);
 
             if ((isTaskLine || isCompletedLine) && line.includes(tag)) {
-                break; 
+                break;
             }
 
             if (isTaskLine) {
@@ -442,7 +442,7 @@ export class PomodoroView extends ItemView {
                 const wasCompletedInSession = state.completedSubtasks.some(stored => text.includes(stored));
 
                 if (wasCompletedInSession) {
-                     subtasks.push({
+                    subtasks.push({
                         line: i,
                         text: text,
                         completed: true
@@ -450,12 +450,12 @@ export class PomodoroView extends ItemView {
                 }
             }
         }
-        
+
         if (subtasks.length === 0) {
-            container.createDiv({ 
-                text: "No pending subtasks found below.", 
+            container.createDiv({
+                text: "No pending subtasks found below.",
                 cls: 'pomodoro-no-subtasks',
-                attr: { style: 'text-align: center; color: var(--text-muted); font-size: 0.9em; margin-top: 10px;' } 
+                attr: { style: 'text-align: center; color: var(--text-muted); font-size: 0.9em; margin-top: 10px;' }
             });
             return;
         }
@@ -471,9 +471,9 @@ export class PomodoroView extends ItemView {
 
             const checkbox = row.createEl('input', { type: 'checkbox' });
             checkbox.checked = task.completed;
-            
+
             checkbox.onchange = async () => {
-                 await this.toggleSubtask(file, task.line, task.text, checkbox.checked);
+                await this.toggleSubtask(file, task.line, task.text, checkbox.checked);
             };
 
             const textSpan = row.createSpan({ text: task.text });
@@ -497,7 +497,7 @@ export class PomodoroView extends ItemView {
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
         if (lines.length <= lineIdx) return;
-        
+
         let line = lines[lineIdx];
         if (checked) {
             line = line.replace('[ ]', '[x]');
@@ -506,7 +506,7 @@ export class PomodoroView extends ItemView {
             line = line.replace('[x]', '[ ]').replace('[X]', '[ ]');
             this.plugin.timerService.state.completedSubtasks = this.plugin.timerService.state.completedSubtasks.filter(t => t !== text);
         }
-        
+
         lines[lineIdx] = line;
         await this.plugin.app.vault.modify(file, lines.join('\n'));
         await this.plugin.timerService.saveState();
@@ -516,21 +516,21 @@ export class PomodoroView extends ItemView {
     async jumpToTask(filePath: string, line: number) {
         const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
         if (file instanceof TFile) {
-             const leaf = this.plugin.app.workspace.getLeaf(false);
-             await leaf.openFile(file);
-             const view = leaf.view as MarkdownView;
-             if (view && view.editor) {
-                 view.editor.setCursor({ line: line, ch: 0 });
-                 view.editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
-                 view.editor.focus();
-             }
+            const leaf = this.plugin.app.workspace.getLeaf(false);
+            await leaf.openFile(file);
+            const view = leaf.view as MarkdownView;
+            if (view && view.editor) {
+                view.editor.setCursor({ line: line, ch: 0 });
+                view.editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
+                view.editor.focus();
+            }
         }
     }
 
     renderStats(container: Element) {
         const stats = this.plugin.stats;
         const statsDiv = container.createDiv({ cls: 'pomodoro-stats' });
-        
+
         const stat1 = statsDiv.createDiv({ cls: 'pomodoro-stat-item' });
         stat1.createSpan({ text: 'Cycles', attr: { style: 'font-size: 0.8em; opacity: 0.7;' } });
         stat1.createSpan({ cls: 'pomodoro-stat-value', text: String(stats.completedSessions) });
@@ -544,13 +544,13 @@ export class PomodoroView extends ItemView {
 // --- PLUGIN ---
 
 export default class PomodoroTaskPlugin extends Plugin {
-	settings: PomodoroTaskSettings;
+    settings: PomodoroTaskSettings;
     stats: PomodoroStats;
     timerService: TimerService;
     view: PomodoroView | null = null;
 
-	async onload() {
-		await this.loadSettings();
+    async onload() {
+        await this.loadSettings();
 
         // Ensure stats are loaded
         if (!this.stats) this.stats = { ...DEFAULT_STATS };
@@ -566,9 +566,9 @@ export default class PomodoroTaskPlugin extends Plugin {
             }
         );
 
-		this.addRibbonIcon('alarm-clock', 'Pomodoro Task', (evt: MouseEvent) => {
-			this.activateView();
-		});
+        this.addRibbonIcon('alarm-clock', 'Pomodoro Task', (evt: MouseEvent) => {
+            this.activateView();
+        });
 
         this.addCommand({
             id: 'open-pomodoro-view',
@@ -578,7 +578,7 @@ export default class PomodoroTaskPlugin extends Plugin {
             }
         });
 
-		this.addSettingTab(new PomodoroSettingTab(this.app, this));
+        this.addSettingTab(new PomodoroSettingTab(this.app, this));
 
         // Event Listeners
         this.registerEvent(this.app.workspace.on('file-open', () => this.refreshView()));
@@ -589,7 +589,7 @@ export default class PomodoroTaskPlugin extends Plugin {
                 this.refreshView();
             }
         }));
-	}
+    }
 
     refreshView() {
         const leaves = this.app.workspace.getLeavesOfType(POMODORO_VIEW_TYPE);
@@ -606,10 +606,10 @@ export default class PomodoroTaskPlugin extends Plugin {
             if (leaf.view instanceof PomodoroView && this.timerService.state.state !== 'IDLE') {
                 const display = leaf.view.containerEl.querySelector('.pomodoro-timer-display');
                 if (display) {
-                     const timeLeft = this.timerService.getTimeLeft();
-                     const minutes = Math.floor(timeLeft / 60);
-                     const seconds = Math.floor(timeLeft % 60);
-                     display.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    const timeLeft = this.timerService.getTimeLeft();
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = Math.floor(timeLeft % 60);
+                    display.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                 } else {
                     leaf.view.render();
                 }
@@ -626,91 +626,91 @@ export default class PomodoroTaskPlugin extends Plugin {
             workspace.revealLeaf(leaf);
         } else {
             const rightLeaf = workspace.getRightLeaf(false);
-            if(rightLeaf) {
+            if (rightLeaf) {
                 await rightLeaf.setViewState({ type: POMODORO_VIEW_TYPE, active: true });
                 workspace.revealLeaf(rightLeaf);
             }
         }
     }
 
-	onunload() {
+    onunload() {
         this.timerService.clearInterval();
-	}
+    }
 
-	async loadSettings() {
-		const loadedData = await this.loadData();
+    async loadSettings() {
+        const loadedData = await this.loadData();
         this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
         this.stats = Object.assign({}, DEFAULT_STATS, loadedData ? loadedData.stats : null);
-	}
+    }
 
-	async saveAllData() {
+    async saveAllData() {
         const data = {
             ...this.settings,
             stats: this.stats,
             timerState: this.timerService.state
         };
         await this.saveData(data);
-	}
+    }
 }
 
 class PomodoroSettingTab extends PluginSettingTab {
-	plugin: PomodoroTaskPlugin;
+    plugin: PomodoroTaskPlugin;
 
-	constructor(app: App, plugin: PomodoroTaskPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+    constructor(app: App, plugin: PomodoroTaskPlugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+    }
 
-	display(): void {
-		const {containerEl} = this;
-		containerEl.empty();
-		containerEl.createEl('h2', {text: 'Pomodoro Settings'});
-
-		new Setting(containerEl)
-			.setName('Target Tag')
-			.setDesc('Tasks with this tag will appear in the Pomodoro panel')
-			.addText(text => text
-				.setPlaceholder('#pomodoro')
-				.setValue(this.plugin.settings.tag)
-				.onChange(async (value) => {
-					this.plugin.settings.tag = value;
-                    await this.plugin.saveAllData();
-				}));
-        
-        containerEl.createEl('h3', {text: 'Durations (minutes)'});
+    display(): void {
+        const { containerEl } = this;
+        containerEl.empty();
+        containerEl.createEl('h2', { text: 'Pomodoro Settings' });
 
         new Setting(containerEl)
-			.setName('Work Duration')
-			.setDesc('How long is a focus session?')
-			.addText(text => text
-				.setPlaceholder('25')
-				.setValue(String(this.plugin.settings.workDuration))
-				.onChange(async (value) => {
-					this.plugin.settings.workDuration = Number(value);
+            .setName('Target Tag')
+            .setDesc('Tasks with this tag will appear in the Pomodoro panel')
+            .addText(text => text
+                .setPlaceholder('#pomodoro')
+                .setValue(this.plugin.settings.tag)
+                .onChange(async (value) => {
+                    this.plugin.settings.tag = value;
                     await this.plugin.saveAllData();
-				}));
-        
-        new Setting(containerEl)
-			.setName('Short Break')
-			.setDesc('Duration of a short break')
-			.addText(text => text
-				.setPlaceholder('5')
-				.setValue(String(this.plugin.settings.shortBreakDuration))
-				.onChange(async (value) => {
-					this.plugin.settings.shortBreakDuration = Number(value);
-                    await this.plugin.saveAllData();
-				}));
+                }));
+
+        containerEl.createEl('h3', { text: 'Durations (minutes)' });
 
         new Setting(containerEl)
-			.setName('Long Break')
-			.setDesc('Duration of a long break')
-			.addText(text => text
-				.setPlaceholder('15')
-				.setValue(String(this.plugin.settings.longBreakDuration))
-				.onChange(async (value) => {
-					this.plugin.settings.longBreakDuration = Number(value);
+            .setName('Work Duration')
+            .setDesc('How long is a focus session?')
+            .addText(text => text
+                .setPlaceholder('25')
+                .setValue(String(this.plugin.settings.workDuration))
+                .onChange(async (value) => {
+                    this.plugin.settings.workDuration = Number(value);
                     await this.plugin.saveAllData();
-				}));
+                }));
+
+        new Setting(containerEl)
+            .setName('Short Break')
+            .setDesc('Duration of a short break')
+            .addText(text => text
+                .setPlaceholder('5')
+                .setValue(String(this.plugin.settings.shortBreakDuration))
+                .onChange(async (value) => {
+                    this.plugin.settings.shortBreakDuration = Number(value);
+                    await this.plugin.saveAllData();
+                }));
+
+        new Setting(containerEl)
+            .setName('Long Break')
+            .setDesc('Duration of a long break')
+            .addText(text => text
+                .setPlaceholder('15')
+                .setValue(String(this.plugin.settings.longBreakDuration))
+                .onChange(async (value) => {
+                    this.plugin.settings.longBreakDuration = Number(value);
+                    await this.plugin.saveAllData();
+                }));
 
         const limitSetting = new Setting(containerEl)
             .setName('Limit Subtasks Shown')
@@ -734,8 +734,8 @@ class PomodoroSettingTab extends PluginSettingTab {
                     this.plugin.settings.subtaskCount = Number(value);
                     await this.plugin.saveAllData();
                 }));
-        
+
         // Initial visibility
         countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
-	}
+    }
 }
