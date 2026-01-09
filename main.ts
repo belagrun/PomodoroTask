@@ -754,18 +754,22 @@ export class PomodoroView extends ItemView {
     }
 
     async populateCycleInfo(cycleDiv: Element) {
+        cycleDiv.empty();
         const { state } = this.plugin.timerService;
-        // Minimalist first cycle state
-        const firstCycleHtml = `<span>🍅</span><span class="pomodoro-cycle-value">--</span>`;
+        
+        const iconSpan = cycleDiv.createSpan();
+        iconSpan.innerText = '🍅';
+        
+        const valueSpan = cycleDiv.createSpan({ cls: 'pomodoro-cycle-value' });
 
         if (!state.taskFile) {
-            cycleDiv.innerHTML = firstCycleHtml;
+            valueSpan.innerText = '--';
             return;
         }
 
         const file = this.plugin.app.vault.getAbstractFileByPath(state.taskFile);
         if (!(file instanceof TFile)) {
-            cycleDiv.innerHTML = firstCycleHtml;
+             valueSpan.innerText = '--';
             return;
         }
 
@@ -774,7 +778,7 @@ export class PomodoroView extends ItemView {
         const lineIdx = state.taskLine;
 
         if (lineIdx >= lines.length) {
-            cycleDiv.innerHTML = firstCycleHtml;
+             valueSpan.innerText = '--';
             return;
         }
 
@@ -786,18 +790,96 @@ export class PomodoroView extends ItemView {
             const currentCount = parseInt(match[1]);
             const goalStr = match[2];
 
-
             if (goalStr) {
-                const goal = parseInt(goalStr);
                 // 🍅 1/4
-                cycleDiv.innerHTML = `<span>🍅</span><span class="pomodoro-cycle-value">${currentCount}/${goal}</span>`;
+                valueSpan.innerText = `${currentCount}/${goalStr}`;
             } else {
                 // 🍅 1
-                cycleDiv.innerHTML = `<span>🍅</span><span class="pomodoro-cycle-value">${currentCount}</span>`;
+                valueSpan.innerText = `${currentCount}`;
             }
         } else {
             // No counter yet
-            cycleDiv.innerHTML = firstCycleHtml;
+            valueSpan.innerText = '--';
+            valueSpan.style.cursor = 'pointer';
+            valueSpan.title = "Click to set Pomodoro goal";
+            
+            valueSpan.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.enableCycleEditing(valueSpan, file, lineIdx);
+            };
+        }
+    }
+
+    enableCycleEditing(container: HTMLElement, file: TFile, lineIdx: number) {
+        container.empty();
+        const input = container.createEl('input', { type: 'number' });
+        input.style.width = '40px';
+        input.style.height = '1.5em';
+        input.style.padding = '0';
+        input.style.border = 'none';
+        input.style.borderBottom = '1px solid var(--text-accent)';
+        input.style.background = 'transparent';
+        input.style.color = 'var(--text-normal)';
+        input.style.textAlign = 'center';
+
+        input.onclick = (e) => e.stopPropagation();
+
+        const finish = async () => {
+            const val = parseInt(input.value);
+            if (!isNaN(val) && val > 0) {
+                 await this.updateTaskCycleGoal(file, lineIdx, val);
+            }
+            this.render();
+        };
+
+        input.onblur = () => finish();
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                input.blur();
+            }
+            if (e.key === 'Escape') {
+                this.render();
+            }
+        };
+
+        setTimeout(() => input.focus(), 0);
+    }
+
+    async updateTaskCycleGoal(file: TFile, lineIdx: number, goal: number) {
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        if (lineIdx < lines.length) {
+            let line = lines[lineIdx];
+            const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+            
+            if (!tomatoRegex.test(line)) {
+                // Determine placement
+                // Try to find checkbox pattern: whitespace + list char + [ ] + whitespace
+                const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
+                const match = line.match(checkboxRegex);
+
+                if (match) {
+                    // Start of task (e.g. "  - [ ] ")
+                    const prefix = match[1];
+                    const rest = line.substring(prefix.length);
+                    lines[lineIdx] = `${prefix}[🍅:: 0/${goal}] ${rest}`;
+                } else {
+                    // No checkbox, but maybe indentation?
+                    // Just append to start, respecting indentation
+                    const indentMatch = line.match(/^(\s*)(.*)/);
+                    if (indentMatch) {
+                        const indent = indentMatch[1];
+                        const text = indentMatch[2];
+                        lines[lineIdx] = `${indent}[🍅:: 0/${goal}] ${text}`;
+                    } else {
+                          lines[lineIdx] = `[🍅:: 0/${goal}] ${line}`;
+                    }
+                }
+
+                await this.plugin.app.vault.modify(file, lines.join('\n'));
+                new Notice(`Set Pomodoro goal: ${goal}`);
+            }
         }
     }
 
