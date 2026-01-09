@@ -861,6 +861,14 @@ export class PomodoroView extends ItemView {
         // Change parent to body to make it global and fixed to viewport
         const parent = document.body;
 
+        // Remove any duplicate widgets first (cleanup)
+        const allWidgets = parent.querySelectorAll('.pomodoro-marker-widget');
+        if (allWidgets.length > 1) {
+            for (let i = 1; i < allWidgets.length; i++) {
+                allWidgets[i].remove();
+            }
+        }
+
         // Priority 1: Current Active File (so you can use markers on any note you are editing)
         let file: TFile | null = this.plugin.app.workspace.getActiveFile();
         
@@ -974,10 +982,18 @@ export class PomodoroView extends ItemView {
              widget.removeClass('is-expanded');
         }
 
+        // Cleanup duplicate content areas if any exist
+        const allContentAreas = widget.querySelectorAll('.pomodoro-marker-content');
+        if (allContentAreas.length > 1) {
+            for (let i = 1; i < allContentAreas.length; i++) {
+                allContentAreas[i].remove();
+            }
+        }
+
         // Populate Content
-        const contentArea = widget.querySelector('.pomodoro-marker-content');
+        const contentArea = widget.querySelector('.pomodoro-marker-content') as HTMLElement;
         if (contentArea) {
-            contentArea.empty(); // Strict clearing
+            contentArea.innerHTML = ''; // Strict clearing using native DOM
 
             const fileContent = await this.plugin.app.vault.read(file);
             const lines = fileContent.split('\n');
@@ -1132,12 +1148,9 @@ export class PomodoroView extends ItemView {
                  }
 
                  // Check if invalid
-                 if (calculatedLine === -1) return;
-
-                 await this.addMarker(file!, calculatedLine);
-
                  if (calculatedLine === -1) {
                      new Notice("Could not determine line position. Is the widget aligned with text?");
+                     return;
                  }
 
                  await this.addMarker(file!, calculatedLine);
