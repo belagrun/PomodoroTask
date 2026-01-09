@@ -1418,5 +1418,24 @@ class PomodoroSettingTab extends PluginSettingTab {
         // Initial visibility
         countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
         todaySetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
+
+        containerEl.createEl('h3', { text: 'Statistics' });
+
+        new Setting(containerEl)
+            .setName('Reset Statistics')
+            .setDesc('Resets the total cycles and focus time counters.')
+            .addButton(button => button
+                .setButtonText('Reset Stats')
+                .setWarning()
+                .onClick(async () => {
+                    this.plugin.stats = {
+                        completedSessions: 0,
+                        totalWorkDuration: 0
+                    };
+                    await this.plugin.saveAllData();
+                    this.plugin.refreshView();
+                    new Notice('Pomodoro statistics have been reset.');
+                    // Force refresh setting tab to show 0 if I were displaying them here, but I'm not.
+                }));
     }
 }
