@@ -1,3 +1,33 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build outputs (keep main.js for distribution)
+# Uncomment to ignore during dev:
+# main.js
+*.js.map
+
+# OS
 .DS_Store
-main.js
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# Local development
+*.local
+.env
+.env.*
+
+# Test outputs
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript cache
+*.tsbuildinfo
