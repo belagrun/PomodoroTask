@@ -569,6 +569,12 @@ export class PomodoroView extends ItemView {
             stopBtn.onclick = () => this.plugin.timerService.stopSession();
         }
 
+        // Update Cycle Info
+        const cycleInfo = container.querySelector('.pomodoro-cycle-info');
+        if (cycleInfo) {
+            this.populateCycleInfo(cycleInfo);
+        }
+
         // Update Subtasks Logic
         const view = container.querySelector('.pomodoro-timer-view');
         const existingList = container.querySelector('.pomodoro-subtask-list');
