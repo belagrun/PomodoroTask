@@ -899,22 +899,74 @@ export class PomodoroView extends ItemView {
         const { state } = this.plugin.timerService;
         const view = container.createDiv({ cls: 'pomodoro-timer-view' });
 
+        // Top Navigation Bar (Back Arrow + Settings/Refresh)
+        const navBar = view.createDiv({ cls: 'pomodoro-timer-nav' });
+        navBar.style.width = '100%';
+        navBar.style.display = 'flex';
+        navBar.style.justifyContent = 'space-between';
+        navBar.style.alignItems = 'center';
+        navBar.style.marginBottom = '8px';
+
         // Navigation (Back Arrow)
-        const backBtn = view.createEl('button', { cls: 'clickable-icon pomodoro-back-btn' });
+        const backBtn = navBar.createEl('button', { cls: 'clickable-icon pomodoro-back-btn' });
         setIcon(backBtn, 'arrow-left');
         backBtn.ariaLabel = "Return to Task List";
         backBtn.onclick = () => this.plugin.timerService.stopSession();
 
-        // Style: In-flow, Left Aligned
-        backBtn.style.alignSelf = 'flex-start';
+        // Style: Plain
         backBtn.style.background = 'transparent';
         backBtn.style.border = 'none';
         backBtn.style.cursor = 'pointer';
         backBtn.style.opacity = '0.7';
-        backBtn.style.display = 'flex';
-        backBtn.style.padding = '0'; // Minimal padding to reduce height
-        backBtn.style.marginBottom = '8px'; // Space between arrow and card
+        backBtn.style.padding = '0';
         
+        // Right Side Controls (Settings + Refresh)
+        const topControls = navBar.createDiv({ attr: { style: 'display: flex; gap: 12px; align-items: center;' } });
+
+        // Settings Button
+        const settingsBtn = topControls.createEl('button');
+        setIcon(settingsBtn, 'settings');
+        settingsBtn.addClass('clickable-icon');
+        settingsBtn.ariaLabel = 'Settings';
+        settingsBtn.style.background = 'transparent';
+        settingsBtn.style.border = 'none';
+        settingsBtn.style.boxShadow = 'none';
+        settingsBtn.style.color = 'var(--text-muted)'; // Changed from on-accent
+        settingsBtn.style.opacity = '0.7';
+        settingsBtn.style.cursor = 'pointer';
+        settingsBtn.style.padding = '0';
+        settingsBtn.style.display = 'flex';
+        settingsBtn.style.transform = 'scale(1.0)'; // Reset scale
+
+        settingsBtn.onclick = (e) => {
+            e.stopPropagation();
+            // @ts-ignore
+            this.plugin.app.setting.open();
+            // @ts-ignore
+            this.plugin.app.setting.openTabById(this.plugin.manifest.id);
+        };
+
+        // Refresh Button
+        const refreshBtn = topControls.createEl('button');
+        setIcon(refreshBtn, 'refresh-cw');
+        refreshBtn.addClass('clickable-icon');
+        refreshBtn.ariaLabel = 'Refresh';
+        refreshBtn.style.background = 'transparent';
+        refreshBtn.style.border = 'none';
+        refreshBtn.style.boxShadow = 'none';
+        refreshBtn.style.color = 'var(--text-muted)'; // Changed from on-accent
+        refreshBtn.style.opacity = '0.7';
+        refreshBtn.style.cursor = 'pointer';
+        refreshBtn.style.padding = '0';
+        refreshBtn.style.display = 'flex';
+        refreshBtn.style.transform = 'scale(1.0)';
+
+        refreshBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.render();
+        };
+
+
         // Active Task Card
         const taskCard = view.createDiv({ cls: 'pomodoro-active-task-card' });
 
@@ -935,53 +987,8 @@ export class PomodoroView extends ItemView {
             label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
         }
 
-        // Right side container for Settings + Toggle
+        // Right side container for Toggle only
         const headerControls = header.createDiv({ attr: { style: 'display: flex; align-items: center;' } });
-
-        // Settings Button
-        const settingsBtn = headerControls.createEl('button');
-        setIcon(settingsBtn, 'settings');
-        settingsBtn.addClass('clickable-icon');
-        settingsBtn.ariaLabel = 'Settings';
-        settingsBtn.style.background = 'transparent';
-        settingsBtn.style.border = 'none';
-        settingsBtn.style.boxShadow = 'none';
-        settingsBtn.style.color = 'var(--text-on-accent)';
-        settingsBtn.style.opacity = '0.7';
-        settingsBtn.style.cursor = 'pointer';
-        settingsBtn.style.padding = '0';
-        settingsBtn.style.display = 'flex'; // Fix vertical alignment
-        settingsBtn.style.transform = 'scale(0.85)';
-        settingsBtn.style.marginRight = '6px'; // Explicit margin to separate from toggle
-
-        settingsBtn.onclick = (e) => {
-            e.stopPropagation();
-            // @ts-ignore
-            this.plugin.app.setting.open();
-            // @ts-ignore
-            this.plugin.app.setting.openTabById(this.plugin.manifest.id);
-        };
-
-        // Refresh Button
-        const refreshBtn = headerControls.createEl('button');
-        setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.addClass('clickable-icon');
-        refreshBtn.ariaLabel = 'Refresh';
-        refreshBtn.style.background = 'transparent';
-        refreshBtn.style.border = 'none';
-        refreshBtn.style.boxShadow = 'none';
-        refreshBtn.style.color = 'var(--text-on-accent)';
-        refreshBtn.style.opacity = '0.7';
-        refreshBtn.style.cursor = 'pointer';
-        refreshBtn.style.padding = '0';
-        refreshBtn.style.display = 'flex';
-        refreshBtn.style.transform = 'scale(0.85)';
-        refreshBtn.style.marginRight = '12px';
-
-        refreshBtn.onclick = (e) => {
-            e.stopPropagation();
-            this.render();
-        };
 
         // Toggle indicator
         if (state.state === 'WORK') {
