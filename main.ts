@@ -1048,39 +1048,96 @@ export class PomodoroView extends ItemView {
             addBtn.onclick = async (e) => {
                  e.stopPropagation();
                  
-                 // Get widget header (it was defined in the outer scope, but we need to find it again or ensure scope closure)
-                 // Or just use the closest marker widget parent
                  const parentWidget = addBtn.closest('.pomodoro-marker-widget');
                  const widgetHeader = parentWidget?.querySelector('.pomodoro-marker-header');
 
                  if (!widgetHeader) return;
 
-                 // Get Y position from the header (top of widget + 20px offset)
                  const headerRect = widgetHeader.getBoundingClientRect();
                  const targetY = headerRect.top + (headerRect.height / 2);
                  
-                 // Find the active view to get context
-                 const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-                 let calculatedLine = -1;
-                 
-                 if (view && view.file && view.file.path === file!.path) {
-                     // Try to get line from coordinates
-                     // We use an X coordinate inside the content area.
-                     // The view contentEl usually has some margin/padding, so left + 100 should be safe.
-                     const contentRect = view.contentEl.getBoundingClientRect();
-                     // @ts-ignore - access internal editor API
-                     const editor = view.editor as any; 
-                     // Check if posAtCoords exists (standard CM adapter in Obsidian)
-                     if (editor.posAtCoords) {
-                        const coords = { 
-                            left: contentRect.left + 50, 
-                            top: targetY 
-                        };
-                        const pos = editor.posAtCoords(coords);
-                        if (pos) {
-                            calculatedLine = pos.line;
-                        }
+                 // Find the correct leaf for this file (not just "active" which might be lost)
+                 let targetLeaf: WorkspaceLeaf | undefined;
+                 this.plugin.app.workspace.iterateAllLeaves(leaf => {
+                     if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === file!.path) {
+                         targetLeaf = leaf;
                      }
+                 });
+
+                 if (!targetLeaf) {
+                     new Notice("File is not open in any editor.");
+                     return;
+                 }
+
+                 // @ts-ignore
+                 const view = targetLeaf.view as MarkdownView;
+                 
+                 // Ensure we are in Editing mode
+                 if (view.getMode() !== 'source') {
+                     new Notice("Please switch to Editing mode (Live Preview or Source) to add markers contextually.");
+                     // Fallback to appending? Or just stop.
+                     return;
+                 }
+
+                 const contentRect = view.contentEl.getBoundingClientRect();
+                 // @ts-ignore - Access the underlying CodeMirror 6 view
+                 const cmEditor = view.editor.cm;
+
+                 let detectedPos = null;
+
+                 if (cmEditor && parentWidget instanceof HTMLElement) {
+                     // 1. Temporarily hide the widget
+                     const originalDisplay = parentWidget.style.display;
+                     parentWidget.style.display = 'none';
+
+                     try {
+                         // 2. Grid Search Strategy using CodeMirror 6 API
+                         const xCandidates = [
+                             contentRect.left + (contentRect.width * 0.1) + 20,
+                             contentRect.left + (contentRect.width * 0.5),
+                             contentRect.right - 50
+                         ];
+
+                         const yOffsets = [0, 8, -8, 16, -16];
+
+                         outerLoop:
+                         for (const dy of yOffsets) {
+                             const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
+                             
+                             for (const x of xCandidates) {
+                                 // @ts-ignore - CodeMirror 6 posAtCoords
+                                 const pos = cmEditor.posAtCoords({ x: x, y: safeY });
+                                 if (pos !== null && pos !== undefined) {
+                                     // @ts-ignore
+                                     const line = cmEditor.state.doc.lineAt(pos);
+                                     detectedPos = { line: line.number - 1 }; // 0-indexed
+                                     break outerLoop;
+                                 }
+                             }
+                         }
+
+                     } catch (err) {
+                         console.warn("Marker hit-test failed:", err);
+                     } finally {
+                         parentWidget.style.display = originalDisplay;
+                     }
+                 }
+
+                 let calculatedLine = -1;
+                 if (detectedPos) {
+                     calculatedLine = detectedPos.line;
+                 } else {
+                     new Notice("Could not align with text line. Try moving the widget closer to the text.");
+                     return; // Do NOT fallback using cursor, as it is confusing
+                 }
+
+                 // Check if invalid
+                 if (calculatedLine === -1) return;
+
+                 await this.addMarker(file!, calculatedLine);
+
+                 if (calculatedLine === -1) {
+                     new Notice("Could not determine line position. Is the widget aligned with text?");
                  }
 
                  await this.addMarker(file!, calculatedLine);
