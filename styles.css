@@ -35,8 +35,8 @@
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: center; /* Vertical alignment */
+    gap: 10px; /* Space between left (icon/count) and text */
 }
 
 .pomodoro-task-item:hover {
@@ -46,17 +46,60 @@
     border-color: var(--interactive-accent);
 }
 
-.pomodoro-task-icon {
-    color: var(--text-muted);
-    margin-right: 10px;
+.pomodoro-task-left {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px; /* Ensure alignment column width */
 }
 
-.pomodoro-task-text {
+.pomodoro-task-icon {
+    color: var(--text-muted);
+    display: flex;
+}
+
+.pomodoro-task-count-pill {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--text-on-accent);
+    background-color: var(--interactive-accent); /* Greenish pill */
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.pomodoro-task-text-container {
     flex: 1;
+    overflow: hidden; /* Handle long text */
+}
+
+.pomodoro-task-text-clean {
     font-size: 0.95em;
     font-weight: 500;
     line-height: 1.4;
+    color: var(--text-normal);
+    display: block;
 }
+
+.pomodoro-task-text-full {
+    font-size: 0.9em;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--text-muted);
+    display: none;
+    word-break: break-word;
+}
+
+/* Hover State */
+.pomodoro-task-item:hover .pomodoro-task-text-clean {
+    display: none;
+}
+
+.pomodoro-task-item:hover .pomodoro-task-text-full {
+    display: block;
+}
+
 
 /* Timer View */
 .pomodoro-timer-view {

@@ -865,10 +865,44 @@ export class PomodoroView extends ItemView {
         tasks.forEach(task => {
             const item = list.createDiv({ cls: 'pomodoro-task-item' });
 
-            const icon = item.createDiv({ cls: 'pomodoro-task-icon' });
-            setIcon(icon, 'circle'); // Obsidian icon
+            // Extract Pomodoro Info
+            const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+            const match = task.text.match(tomatoRegex);
+            let tomatoCount = '';
+            if (match) {
+                const current = match[1];
+                const goal = match[2];
+                tomatoCount = goal ? `🍅 ${current}/${goal}` : `🍅 ${current}`;
+            }
 
-            const text = item.createDiv({ cls: 'pomodoro-task-text', text: task.text });
+            // Clean Text
+            const cleanText = this.cleanTaskText(task.text);
+
+            // Left Side (Icon + Potentially Tomato Count)
+            const leftSide = item.createDiv({ cls: 'pomodoro-task-left' });
+            
+            // Just use the Pomodoro count/icon if it exists, otherwise maybe a dot?
+            // User: "🍅 2/4 a esquerda da pomodoro task... pode ser 🍅:: 1 ou até mesmo não ter nenhuma maça"
+            // If match, show it. If not, show generic icon?
+            if (tomatoCount) {
+                const countSpan = leftSide.createSpan({ cls: 'pomodoro-task-count-pill', text: tomatoCount });
+            } else {
+                 const icon = leftSide.createDiv({ cls: 'pomodoro-task-icon' });
+                 setIcon(icon, 'circle'); 
+            }
+
+            // Right Side (Text)
+            const textContainer = item.createDiv({ cls: 'pomodoro-task-text-container' });
+            
+            // Clean Text (Default visible)
+            const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean', text: cleanText });
+            
+            // Full Text (Hover visible)
+            // We strip the [🍅:: ..] tag from the full text to avoid duplication if we want smoothness,
+            // or just render raw. User asked "task sem as coisas do obsidian... quando done...".
+            // Implication: Hover = Full Raw Text (maybe minus the tag if we want to be fancy, but raw is safer for context).
+            const fullSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-full', text: task.text });
+
 
             item.addEventListener('click', () => {
                 this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
