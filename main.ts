@@ -142,6 +142,94 @@ class SoundService {
              mkBeep(now);
              mkBeep(now + 0.3);
              mkBeep(now + 0.6);
+        } else if (type === 'bell') {
+            // FM Synthesis for Bell
+            const pOsc = ctx.createOscillator();
+            const pGain = ctx.createGain();
+            pOsc.connect(pGain);
+            pGain.connect(osc.frequency);
+            
+            pOsc.type = 'sine';
+            pOsc.frequency.value = 440; // Modulation freq
+            pGain.gain.setValueAtTime(1000, now);
+            pGain.gain.exponentialRampToValueAtTime(1, now + 1.5);
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, now); // Carrier freq
+            gain.gain.setValueAtTime(volume, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 2.0);
+
+            osc.start(now);
+            pOsc.start(now);
+            osc.stop(now + 2.0);
+            pOsc.stop(now + 2.0);
+        } else if (type === 'tick') {
+            // White Noise Burst
+            const bufferSize = ctx.sampleRate * 0.05; // 50ms
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * volume;
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            noise.connect(ctx.destination); // Direct connect for sharp tick
+            noise.start(now);
+        } else if (type === 'tock') {
+             // Lower/Duller Tick (Sine burst)
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+            gain.gain.setValueAtTime(volume, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        } else if (type === 'wood') {
+            // Woodblock
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, now);
+            gain.gain.setValueAtTime(volume, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'gong') {
+             // Low Sine with long decay
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(220, now);
+            gain.gain.setValueAtTime(volume, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 4.0);
+            osc.start(now);
+            osc.stop(now + 4.0);
+            // Add harmonic
+            const harm = ctx.createOscillator();
+            const hGain = ctx.createGain();
+            harm.connect(hGain);
+            hGain.connect(ctx.destination);
+            harm.frequency.value = 224; // Beating
+            hGain.gain.setValueAtTime(volume * 0.5, now);
+            hGain.gain.linearRampToValueAtTime(0.01, now + 3.0);
+            harm.start(now);
+            harm.stop(now + 4.0);
+        } else if (type === 'arcade') {
+            // Retro Jump
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(220, now);
+            osc.frequency.linearRampToValueAtTime(880, now + 0.2);
+            gain.gain.setValueAtTime(volume * 0.5, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } else if (type === 'digital') {
+             // Digital Watch Beep-Beep
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(3000, now);
+            gain.gain.setValueAtTime(volume, now);
+            gain.gain.setValueAtTime(0, now + 0.08); // Silence
+            gain.gain.setValueAtTime(volume, now + 0.16); // Second beep
+            gain.gain.setValueAtTime(0, now + 0.24);
+
+            osc.start(now);
+            osc.stop(now + 0.25);
         }
     }
 }
@@ -1734,9 +1822,16 @@ class PomodoroSettingTab extends PluginSettingTab {
         const soundOptions = {
             'none': 'None',
             'blip': 'Blip (Start)',
-            'ding': 'Ding (Digital)',
+            'ding': 'Ding (Simple)',
             'chime': 'Chime (Soft)',
             'click': 'Click',
+            'tick': 'Tick (Mechanical)',
+            'tock': 'Tock (Mechanical)',
+            'bell': 'Bell (Metallic)',
+            'wood': 'Woodblock',
+            'gong': 'Gong (Deep)',
+            'digital': 'Digital Watch',
+            'arcade': 'Arcade PowerUp',
             'alarm': 'Alarm (3 Beeps)'
         };
 
