@@ -10,6 +10,7 @@ interface PomodoroTaskSettings {
     subtaskCount: number;
     enableSubtaskLimit: boolean;
     defaultSubtasksExpanded: boolean;
+    autoStartPaused: boolean;
     showCompletedSubtasks: boolean;
     showCompletedToday: boolean;
     // Sound Settings
@@ -28,6 +29,7 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     subtaskCount: 3,
     enableSubtaskLimit: true,
     defaultSubtasksExpanded: true,
+    autoStartPaused: false,
     showCompletedSubtasks: false,
     showCompletedToday: false,
     volume: 50,
@@ -324,6 +326,11 @@ class TimerService {
         // User asked for "Início do ciclo".
         if (type === 'WORK') {
             this.soundService.play(this.plugin.settings.soundWorkStart);
+        }
+
+        // Auto Start Paused Logic
+        if (this.plugin.settings.autoStartPaused) {
+            this.state.pausedTime = Date.now();
         }
 
         this.saveState();
@@ -1725,6 +1732,16 @@ class PomodoroSettingTab extends PluginSettingTab {
             await this.plugin.saveAllData();
         });
 
+
+        new Setting(containerEl)
+            .setName('Start Cycle Paused')
+            .setDesc('If enabled, new sessions will start in a paused state, waiting for you to click Resume.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.autoStartPaused)
+                .onChange(async (value) => {
+                    this.plugin.settings.autoStartPaused = value;
+                    await this.plugin.saveAllData();
+                }));
 
         new Setting(containerEl)
             .setName('Default Subtasks Expanded')
