@@ -4,7 +4,7 @@
 This is an Obsidian plugin ("Pomodoro Task") that integrates a Pomodoro timer with Markdown tasks. It tracks time spent on specific tasks identified by a tag (default `#pomodoro`) and logs completion counts directly into the Markdown file.
 
 ## Architecture & Code Structure
-- **Monolithic `main.ts`**: The core logic resides in a single file `main.ts` (~1000 lines). It contains:
+- **Monolithic `main.ts`**: The core logic resides in a single file `main.ts`. It contains:
   - `PomodoroTaskPlugin` (Main entry)
   - `TimerService` (State machine & Business logic)
   - `PomodoroView` (UI implementation)
@@ -33,6 +33,8 @@ This is an Obsidian plugin ("Pomodoro Task") that integrates a Pomodoro timer wi
   - **Hybrid Rendering**:
     - `render()`: Builds the entire DOM structure. Used for state changes (Idle -> Work).
     - `updateTimerUI()`: Updates *only* the text content of the timer display every second to avoid flickering/performance cost.
+  - **Task Text Cleaning**:
+    - The `cleanTaskText` method strips metadata (tags, dataview fields, emojis like 🔁, 📅) before displaying task names in the UI.
 - **Subtask Handling**:
   - Subtasks are identified by indentation below the main task.
   - They are rendered in the Timer View and interactively toggled, syncing state back to the markdown file immediately.
@@ -44,4 +46,5 @@ This is an Obsidian plugin ("Pomodoro Task") that integrates a Pomodoro timer wi
 
 ## Common Pitfalls
 - **File Edits**: When the plugin edits a file (to log a tomato), it must read the *latest* content from disk (`vault.read(file)`) to avoid race conditions or overwriting user edits.
-- **Line Tracking**: The plugin relies on line numbers but attempts to verify content via string matching (`line.includes(...)`) before editing, to handle lines moving around.
+- **Line Tracking**: The plugin relies on line numbers but attempts to verify content via string matching (`line.substring(0, 5)`) before editing, to handle lines moving around.
+- **Time Units**: Settings store duration in **minutes**, but internal timer logic (`getTimeLeft`) converts to **seconds** for display.
