@@ -450,14 +450,17 @@ export class PomodoroView extends ItemView {
 
     async populateCycleInfo(cycleDiv: Element) {
         const { state } = this.plugin.timerService;
+        // Minimalist first cycle state
+        const firstCycleHtml = `<span>🍅</span><span class="pomodoro-cycle-value">--</span>`;
+
         if (!state.taskFile) {
-            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            cycleDiv.innerHTML = firstCycleHtml;
             return;
         }
 
         const file = this.plugin.app.vault.getAbstractFileByPath(state.taskFile);
         if (!(file instanceof TFile)) {
-            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            cycleDiv.innerHTML = firstCycleHtml;
             return;
         }
 
@@ -466,7 +469,7 @@ export class PomodoroView extends ItemView {
         const lineIdx = state.taskLine;
 
         if (lineIdx >= lines.length) {
-            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            cycleDiv.innerHTML = firstCycleHtml;
             return;
         }
 
@@ -480,15 +483,15 @@ export class PomodoroView extends ItemView {
 
             if (goalStr) {
                 const goal = parseInt(goalStr);
-                // Show progress with visual indicator
-                cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Ciclo</span> <span class="pomodoro-cycle-value">${currentCount}/${goal}</span> 🍅`;
+                // 🍅 1/4
+                cycleDiv.innerHTML = `<span>🍅</span><span class="pomodoro-cycle-value">${currentCount}/${goal}</span>`;
             } else {
-                // No goal, just show count
-                cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Ciclos concluídos</span> <span class="pomodoro-cycle-value">${currentCount}</span> 🍅`;
+                // 🍅 1
+                cycleDiv.innerHTML = `<span>🍅</span><span class="pomodoro-cycle-value">${currentCount}</span>`;
             }
         } else {
-            // No counter yet, this is the first cycle
-            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
+            // No counter yet
+            cycleDiv.innerHTML = firstCycleHtml;
         }
     }
 
