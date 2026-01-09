@@ -442,6 +442,7 @@ export class PomodoroView extends ItemView {
     showSubtasks: boolean;
     floatingStats: HTMLElement | null = null;
     currentZoom: number = 1.0;
+    private renderCounter: number = 0;
     
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
@@ -496,6 +497,9 @@ export class PomodoroView extends ItemView {
     }
 
     render() {
+        this.renderCounter++;
+        const currentRenderId = this.renderCounter;
+
         if (!this.containerEl) return;
         const container = this.containerEl.children[1];
         if (!container) return;
@@ -520,7 +524,7 @@ export class PomodoroView extends ItemView {
                 this.renderTimer(container);
             } else {
                 this.renderStats(container);
-                this.renderTaskList(container);
+                this.renderTaskList(container, currentRenderId);
             }
         }
     }
@@ -782,6 +786,7 @@ export class PomodoroView extends ItemView {
             const currentCount = parseInt(match[1]);
             const goalStr = match[2];
 
+
             if (goalStr) {
                 const goal = parseInt(goalStr);
                 // 🍅 1/4
@@ -796,7 +801,13 @@ export class PomodoroView extends ItemView {
         }
     }
 
-    async renderTaskList(container: Element) {
+    async renderTaskList(container: Element, renderId: number) {
+        // Guard against race conditions. If render has been called again, this.renderCounter will be > renderId
+        if (renderId !== this.renderCounter) return;
+
+        // Double check container still exists
+        if (!container) return;
+
         const header = container.createDiv({ cls: 'pomodoro-header' });
         header.style.display = 'flex';
         header.style.justifyContent = 'space-between';
@@ -836,7 +847,10 @@ export class PomodoroView extends ItemView {
         }
 
         if (!file) {
-            container.createEl('p', {
+             // Check concurrency again before manipulating DOM
+             if (renderId !== this.renderCounter) return;
+
+             container.createEl('p', {
                 text: 'Open a markdown file to see tasks.',
                 attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' }
             });
@@ -844,6 +858,10 @@ export class PomodoroView extends ItemView {
         }
 
         const content = await this.plugin.app.vault.read(file);
+        
+        // Check concurrency again after await
+        if (renderId !== this.renderCounter) return;
+
         const lines = content.split('\n');
         const tasks: { line: number, text: string }[] = [];
         const tag = this.plugin.settings.tag.trim();
@@ -861,12 +879,18 @@ export class PomodoroView extends ItemView {
         });
 
         if (tasks.length === 0) {
+            // Check Concurrency
+            if (renderId !== this.renderCounter) return;
+
             container.createEl('p', {
                 text: `No tasks found with tag ${tag}`,
                 attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' }
             });
             return;
         }
+        
+        // Check Concurrency
+        if (renderId !== this.renderCounter) return;
 
         const list = container.createDiv({ cls: 'pomodoro-task-list' });
         tasks.forEach(task => {
