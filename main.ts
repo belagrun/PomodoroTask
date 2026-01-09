@@ -443,7 +443,7 @@ export class PomodoroView extends ItemView {
     floatingStats: HTMLElement | null = null;
     currentZoom: number = 1.0;
     private renderCounter: number = 0;
-    
+
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
         this.plugin = plugin;
@@ -847,10 +847,10 @@ export class PomodoroView extends ItemView {
         }
 
         if (!file) {
-             // Check concurrency again before manipulating DOM
-             if (renderId !== this.renderCounter) return;
+            // Check concurrency again before manipulating DOM
+            if (renderId !== this.renderCounter) return;
 
-             container.createEl('p', {
+            container.createEl('p', {
                 text: 'Open a markdown file to see tasks.',
                 attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' }
             });
@@ -858,7 +858,7 @@ export class PomodoroView extends ItemView {
         }
 
         const content = await this.plugin.app.vault.read(file);
-        
+
         // Check concurrency again after await
         if (renderId !== this.renderCounter) return;
 
@@ -888,7 +888,7 @@ export class PomodoroView extends ItemView {
             });
             return;
         }
-        
+
         // Check Concurrency
         if (renderId !== this.renderCounter) return;
 
