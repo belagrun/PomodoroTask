@@ -123,6 +123,25 @@
     background-color: var(--background-modifier-error-hover);
 }
 
+.pomodoro-btn-pause {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    opacity: 0.9;
+}
+.pomodoro-btn-pause:hover {
+    opacity: 1;
+}
+
+.pomodoro-btn-resume {
+    background-color: var(--interactive-success);
+    color: var(--text-on-accent);
+    border: none;
+}
+.pomodoro-btn-resume:hover {
+    background-color: var(--interactive-success-hover);
+}
+
 /* Stats */
 .pomodoro-stats {
     margin-top: auto;

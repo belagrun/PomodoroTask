@@ -29,6 +29,7 @@ interface PomodoroSession {
     taskFile: string;
     taskText: string;
     completedSubtasks: string[]; // List of subtask texts completed in this session
+    pausedTime?: number | null; // Timestamp when paused
 }
 
 interface PomodoroStats {
@@ -107,14 +108,37 @@ class TimerService {
             taskLine: -1,
             taskFile: '',
             completedSubtasks: [],
-            taskText: ''
+            taskText: '',
+            pausedTime: null
         };
         this.saveState();
         this.plugin.refreshView();
     }
 
+    pauseSession() {
+        if (this.state.state !== 'IDLE' && !this.state.pausedTime) {
+            this.state.pausedTime = Date.now();
+            this.clearInterval();
+            this.saveState();
+            this.plugin.refreshView();
+        }
+    }
+
+    resumeSession() {
+        if (this.state.state !== 'IDLE' && this.state.pausedTime && this.state.startTime) {
+            const pauseDuration = Date.now() - this.state.pausedTime;
+            this.state.startTime += pauseDuration;
+            this.state.pausedTime = null;
+            this.saveState();
+            this.startTick();
+            this.plugin.refreshView();
+        }
+    }
+
     startTick() {
         this.clearInterval();
+        if (this.state.pausedTime) return; // Don't tick if paused
+
         this.intervalId = setInterval(() => {
             const timeLeft = this.getTimeLeft();
             if (timeLeft <= 0) {
@@ -134,7 +158,9 @@ class TimerService {
 
     getTimeLeft(): number { // in seconds
         if (!this.state.startTime) return 0;
-        const elapsedSec = (Date.now() - this.state.startTime) / 1000;
+        
+        const now = this.state.pausedTime || Date.now();
+        const elapsedSec = (now - this.state.startTime) / 1000;
         const totalSec = this.state.duration * 60;
         return Math.max(0, totalSec - elapsedSec);
     }
@@ -244,8 +270,16 @@ export class PomodoroView extends ItemView {
         header.style.justifyContent = 'space-between';
         header.style.alignItems = 'center';
 
-        const label = header.createDiv({ cls: 'pomodoro-active-task-label', text: state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK' });
-
+        const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
+        
+        if (state.pausedTime) {
+            label.innerText = '⏸️ PAUSED';
+            label.style.opacity = '1.0';
+            label.style.color = 'var(--text-warning)';
+        } else {
+            label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
+        }
+        
         // Toggle indicator
         if (state.state === 'WORK') {
             const toggleIcon = header.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
@@ -293,6 +327,16 @@ export class PomodoroView extends ItemView {
 
         // Controls
         const controls = view.createDiv({ cls: 'pomodoro-controls' });
+
+        // Pause/Resume Button
+        if (state.pausedTime) {
+             const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ Resume' });
+             resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+        } else {
+             const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ Pause' });
+             pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+        }
+
         const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / Cancel' });
         stopBtn.onclick = () => this.plugin.timerService.stopSession();
 
