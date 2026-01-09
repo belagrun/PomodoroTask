@@ -702,6 +702,7 @@ export class PomodoroView extends ItemView {
     
     // Floating Marker State
     markerWidgetExpanded: boolean = false;
+    private isRenderingMarkers: boolean = false;
     rainbowColors: string[] = [
         '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', 
         '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
@@ -858,19 +859,24 @@ export class PomodoroView extends ItemView {
     }
 
     async renderMarkers(container: Element) {
-        // Change parent to body to make it global and fixed to viewport
-        const parent = document.body;
+        // Prevent concurrent renders
+        if (this.isRenderingMarkers) return;
+        this.isRenderingMarkers = true;
 
-        // Remove any duplicate widgets first (cleanup)
-        const allWidgets = parent.querySelectorAll('.pomodoro-marker-widget');
-        if (allWidgets.length > 1) {
-            for (let i = 1; i < allWidgets.length; i++) {
-                allWidgets[i].remove();
+        try {
+            // Change parent to body to make it global and fixed to viewport
+            const parent = document.body;
+
+            // Remove any duplicate widgets first (cleanup)
+            const allWidgets = parent.querySelectorAll('.pomodoro-marker-widget');
+            if (allWidgets.length > 1) {
+                for (let i = 1; i < allWidgets.length; i++) {
+                    allWidgets[i].remove();
+                }
             }
-        }
 
-        // Priority 1: Current Active File (so you can use markers on any note you are editing)
-        let file: TFile | null = this.plugin.app.workspace.getActiveFile();
+            // Priority 1: Current Active File (so you can use markers on any note you are editing)
+            let file: TFile | null = this.plugin.app.workspace.getActiveFile();
         
         // Priority 2: If no active file (e.g. initial load or focusing sidebar), fallback to Timer Task File
         if (!file && this.plugin.timerService.state.taskFile) {
@@ -1155,6 +1161,9 @@ export class PomodoroView extends ItemView {
 
                  await this.addMarker(file!, calculatedLine);
             };
+        }
+        } finally {
+            this.isRenderingMarkers = false;
         }
     }
 
