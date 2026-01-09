@@ -286,7 +286,7 @@ export class PomodoroView extends ItemView {
         clean = clean.replace(/#[\w\/-]+/g, '');
 
         // 3. Remove Dataview fields
-        clean = clean.replace(/\[[^\]]+::.*?\]/g, ''); 
+        clean = clean.replace(/\[[^\]]+::.*?\]/g, '');
 
         // 4. Aggressive Cut: Remove everything including and to the right of any Obsidian Tasks symbol
         // Symbols: 🔁 (recurrence), 🏁 (flag), 📅 (due), ⏳ (scheduled), 🛫 (start), ✅ (done), ➕ (created)
@@ -407,9 +407,36 @@ export class PomodoroView extends ItemView {
             label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
         }
 
+        // Right side container for Settings + Toggle
+        const headerControls = header.createDiv({ attr: { style: 'display: flex; align-items: center;' } });
+
+        // Settings Button
+        const settingsBtn = headerControls.createEl('button');
+        setIcon(settingsBtn, 'settings');
+        settingsBtn.addClass('clickable-icon');
+        settingsBtn.ariaLabel = 'Settings';
+        settingsBtn.style.background = 'transparent';
+        settingsBtn.style.border = 'none';
+        settingsBtn.style.boxShadow = 'none';
+        settingsBtn.style.color = 'var(--text-on-accent)';
+        settingsBtn.style.opacity = '0.7';
+        settingsBtn.style.cursor = 'pointer';
+        settingsBtn.style.padding = '0';
+        settingsBtn.style.display = 'flex'; // Fix vertical alignment
+        settingsBtn.style.transform = 'scale(0.85)';
+        settingsBtn.style.marginRight = '12px'; // Explicit margin to separate from toggle
+
+        settingsBtn.onclick = (e) => {
+            e.stopPropagation();
+            // @ts-ignore
+            this.plugin.app.setting.open();
+            // @ts-ignore
+            this.plugin.app.setting.openTabById(this.plugin.manifest.id);
+        };
+
         // Toggle indicator
         if (state.state === 'WORK') {
-            const toggleIcon = header.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
+            const toggleIcon = headerControls.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
             toggleIcon.style.fontSize = '0.8em';
             toggleIcon.style.opacity = '0.7';
         }
@@ -430,7 +457,7 @@ export class PomodoroView extends ItemView {
         // Clean and Truncate task text
         const cleanedText = this.cleanTaskText(state.taskText);
         const displayText = cleanedText.length > 60 ? cleanedText.substring(0, 60) + '...' : cleanedText;
-        
+
         textContainer.createDiv({ text: displayText, cls: 'pomodoro-active-task-text' });
 
         // Link Icon
@@ -534,9 +561,27 @@ export class PomodoroView extends ItemView {
 
         header.createEl('h4', { text: '🎯 Active Tasks' });
 
-        const refreshBtn = header.createEl('button', { text: '↻' });
-        refreshBtn.classList.add('clickable-icon');
+        const controls = header.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: center;' } });
+
+        const settingsBtn = controls.createEl('button');
+        settingsBtn.addClass('clickable-icon');
+        settingsBtn.ariaLabel = 'Settings';
+        settingsBtn.style.display = 'flex';
+        settingsBtn.style.alignItems = 'center';
+        setIcon(settingsBtn, 'settings');
+        settingsBtn.onclick = () => {
+            // @ts-ignore
+            this.plugin.app.setting.open();
+            // @ts-ignore
+            this.plugin.app.setting.openTabById(this.plugin.manifest.id);
+        };
+
+        const refreshBtn = controls.createEl('button');
+        refreshBtn.addClass('clickable-icon');
         refreshBtn.ariaLabel = 'Refresh List';
+        refreshBtn.style.display = 'flex';
+        refreshBtn.style.alignItems = 'center';
+        setIcon(refreshBtn, 'refresh-cw');
         refreshBtn.onclick = () => this.render();
 
         // Get active file
