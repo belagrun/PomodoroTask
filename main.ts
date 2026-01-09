@@ -196,17 +196,51 @@ class TimerService {
 
             // Check boundaries
             if (lineIdx < lines.length) {
-                // Formatting: ... ✅ 2026-01-09 14:00 [duration:: 25m]
-                const now = new Date();
-                const dateStr = now.toISOString().split('T')[0];
-                const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
-                const completionText = ` ✅ ${dateStr} ${timeStr} [duration:: ${this.state.duration}m]`;
-
                 let line = lines[lineIdx];
+
                 // Check if line looks like our task (basic check)
-                // Relaxed check: just check if it contains part of the text
                 if (line.includes(this.state.taskText.substring(0, 5))) {
-                    lines[lineIdx] = line + completionText;
+
+                    // Regex to find [🍅:: N] or [🍅:: N/M]
+                    const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+                    const match = line.match(tomatoRegex);
+
+                    let newLine = line;
+
+                    if (match) {
+                        // Increment existing counter
+                        const currentCount = parseInt(match[1]);
+                        const goalStr = match[2]; // undefined if no goal
+                        let goal: number | null = null;
+
+                        const newCount = currentCount + 1;
+                        let newLabel = `[🍅:: ${newCount}`;
+
+                        if (goalStr) {
+                            newLabel += `/${goalStr}`;
+                            goal = parseInt(goalStr);
+                        }
+                        newLabel += `]`;
+
+                        // Replace the old tag with the new one
+                        newLine = line.replace(match[0], newLabel);
+
+                        // Completion Logic: If goal met, mark task as checked
+                        if (goal !== null && newCount >= goal) {
+                            // Regex for standard markdown task: "- [ ]" or "* [ ]"
+                            const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
+                            if (checkboxRegex.test(newLine)) {
+                                newLine = newLine.replace(checkboxRegex, '$1[x]');
+                            }
+                        }
+
+                    } else {
+                        // No counter found, start a new one
+                        newLine = `${line} [🍅:: 1]`;
+                    }
+
+                    // Save changes
+                    lines[lineIdx] = newLine;
                     await this.plugin.app.vault.modify(file, lines.join('\n'));
                 } else {
                     new Notice("Task line changed? Could not log time to the exact line.");
