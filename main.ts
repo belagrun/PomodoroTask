@@ -696,6 +696,13 @@ export class PomodoroView extends ItemView {
     floatingStats: HTMLElement | null = null;
     currentZoom: number = 1.0;
     private renderCounter: number = 0;
+    
+    // Floating Marker State
+    markerWidgetExpanded: boolean = false;
+    rainbowColors: string[] = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', 
+        '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
+    ];
 
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
@@ -798,6 +805,7 @@ export class PomodoroView extends ItemView {
         return clean;
     }
 
+
     render() {
         this.renderCounter++;
         const currentRenderId = this.renderCounter;
@@ -812,6 +820,8 @@ export class PomodoroView extends ItemView {
         // Check if we can just update the existing timer view
         if (state.state !== 'IDLE' && hasTimerView) {
             this.updateTimer(container);
+            // Ensure markers are re-rendered/checked in case file changed
+            this.renderMarkers(container);
         } else {
             // Clean up global float if entering IDLE or non-timer state
             if (state.state === 'IDLE' && this.floatingStats) {
@@ -824,10 +834,185 @@ export class PomodoroView extends ItemView {
 
             if (state.state !== 'IDLE') {
                 this.renderTimer(container);
+                this.renderMarkers(container);
             } else {
                 this.renderStats(container);
                 this.renderTaskList(container, currentRenderId);
             }
+        }
+    }
+
+    async renderMarkers(container: Element) {
+        // Use contentEl instead of the scrollable container to stay floating
+        const parent = this.contentEl; 
+        
+        // Active file logic
+        let file: TFile | null = null;
+        if (this.plugin.timerService.state.taskFile) {
+            file = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile) as TFile;
+        } 
+        
+        // Fallback to active file if no task running or file not found
+        if (!file) {
+            file = this.plugin.app.workspace.getActiveFile();
+        }
+
+        if (!file) {
+            // Remove widget if no file context
+            const existing = parent.querySelector('.pomodoro-marker-widget');
+            if (existing) existing.remove();
+            return;
+        }
+
+        // Try to find existing widget in contentEl
+        let widget = parent.querySelector('.pomodoro-marker-widget') as HTMLElement;
+        
+        if (!widget) {
+            widget = parent.createDiv({ cls: 'pomodoro-marker-widget' });
+            
+            // Header
+            const header = widget.createDiv({ cls: 'pomodoro-marker-header' });
+            header.onclick = (e) => {
+                e.stopPropagation();
+                this.markerWidgetExpanded = !this.markerWidgetExpanded;
+                this.renderMarkers(container); // Re-render to update classes
+            };
+
+            const icon = header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
+            const title = header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
+            
+            // Content Area Structure
+            widget.createDiv({ cls: 'pomodoro-marker-content' });
+        }
+
+        // Apply Expansion State
+        if (this.markerWidgetExpanded) {
+             widget.addClass('is-expanded');
+        } else {
+             widget.removeClass('is-expanded');
+        }
+
+        // Populate Content
+        const contentArea = widget.querySelector('.pomodoro-marker-content');
+        if (contentArea) {
+            contentArea.empty(); // Strict clearing
+
+            const fileContent = await this.plugin.app.vault.read(file);
+            const lines = fileContent.split('\n');
+            const markers: { line: number, name: string }[] = [];
+            const markerRegex = /<!-- Marker: (.*?) -->/;
+
+            lines.forEach((line, idx) => {
+                const match = line.match(markerRegex);
+                if (match) {
+                    markers.push({ line: idx, name: match[1] || 'Unnamed' });
+                }
+            });
+
+            const list = contentArea.createDiv({ cls: 'pomodoro-marker-list' });
+
+            if (markers.length === 0) {
+                 list.createDiv({ text: "No markers", attr: { style: 'font-size: 0.8em; color: var(--text-muted); text-align: center;' }});
+            }
+
+            markers.forEach((m, i) => {
+                 const color = this.rainbowColors[i % this.rainbowColors.length];
+                 const item = list.createDiv({ cls: 'pomodoro-marker-item' });
+                 item.style.backgroundColor = color;
+                 
+                 const nameSpan = item.createSpan({ text: m.name });
+                 nameSpan.style.flex = '1';
+                 nameSpan.onclick = async () => {
+                     // Smart Jump: Find the line freshly to handle text shifts
+                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     if (freshLine !== -1) {
+                        this.jumpToTask(file!.path, freshLine);
+                     } else {
+                        new Notice("Marker not found (deleted?)");
+                        this.renderMarkers(container); // Refresh list
+                     }
+                 };
+
+                 const delBtn = item.createSpan({ cls: 'pomodoro-marker-delete', text: '✖' });
+                 delBtn.onclick = async (e) => {
+                     e.stopPropagation();
+                     // Smart Delete: Find line freshly
+                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     if (freshLine !== -1) {
+                        await this.deleteMarker(file!, freshLine);
+                     }
+                 };
+            });
+
+            // Add Button
+            const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
+            addBtn.innerHTML = '<span>➕</span> Add Marker';
+            addBtn.onclick = async (e) => {
+                 e.stopPropagation();
+                 await this.addMarker(file!);
+            };
+        }
+    }
+
+    async findMarkerLine(file: TFile, name: string): Promise<number> {
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        // Exact match for the specific marker comment
+        const target = `<!-- Marker: ${name} -->`;
+        return lines.findIndex(line => line.includes(target));
+    }
+
+    async addMarker(file: TFile) {
+        // Find the leaf that has this file open to get the cursor
+        let targetLeaf: WorkspaceLeaf | null = null;
+        this.plugin.app.workspace.iterateAllLeaves(leaf => {
+            if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === file.path) {
+                targetLeaf = leaf;
+            }
+        });
+
+        if (targetLeaf) {
+            // @ts-ignore
+            const view = targetLeaf.view as MarkdownView;
+            // Focus to ensure we get a valid cursor (or at least try)
+            // view.editor.focus(); 
+            
+            const cursor = view.editor.getCursor();
+            const lineIdx = cursor.line;
+            const content = await this.plugin.app.vault.read(file);
+            const lines = content.split('\n');
+            
+            const name = `Mark-${Math.floor(Math.random() * 900) + 100}`;
+            const markerText = `<!-- Marker: ${name} -->`;
+
+            // Splice inserts AT the index, shifting existing items down.
+            // If the cursor is at line 10, we insert at line 10.
+            // The old line 10 becomes line 11.
+            lines.splice(lineIdx, 0, markerText);
+            
+            await this.plugin.app.vault.modify(file, lines.join('\n'));
+            new Notice(`Added ${name} at line ${lineIdx + 1}`);
+            
+            setTimeout(() => this.render(), 100);
+
+        } else {
+            // File not open in any leaf? Append.
+             // Fallback: Append to end
+            const content = await this.plugin.app.vault.read(file);
+            const name = `Mark-${Math.floor(Math.random() * 900) + 100}`;
+            await this.plugin.app.vault.modify(file, content + `\n<!-- Marker: ${name} -->`);
+            new Notice(`Appended ${name} (File was not open)`);
+            setTimeout(() => this.render(), 100);
+        }
+    }
+
+    async deleteMarker(file: TFile, lineIdx: number) {
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        if (lines.length > lineIdx) {
+            lines.splice(lineIdx, 1);
+            await this.plugin.app.vault.modify(file, lines.join('\n'));
+            this.render();
         }
     }
 

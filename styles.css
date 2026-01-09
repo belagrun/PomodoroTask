@@ -432,3 +432,138 @@
 .pomodoro-task-item {
     position: relative; /* For absolute positioning of loader */
 }
+
+/* Page Marker Widget */
+.pomodoro-marker-widget {
+    position: absolute;
+    left: 10px;
+    top: 60px; /* Below headers */
+    width: 40px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 1000;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 80vh;
+}
+
+.pomodoro-marker-widget.is-expanded {
+    width: 200px;
+    border-radius: 12px;
+}
+
+.pomodoro-marker-header {
+    height: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: var(--background-secondary);
+    border-bottom: 1px solid transparent;
+    user-select: none;
+}
+
+.pomodoro-marker-widget.is-expanded .pomodoro-marker-header {
+    justify-content: space-between;
+    padding: 0 12px;
+    border-bottom-color: var(--background-modifier-border);
+}
+
+.pomodoro-marker-icon {
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+.pomodoro-marker-title {
+    font-size: 0.9em;
+    font-weight: 600;
+    display: none;
+    color: var(--text-normal);
+}
+
+.pomodoro-marker-widget.is-expanded .pomodoro-marker-title {
+    display: block;
+}
+
+.pomodoro-marker-content {
+    display: none; /* Hidden when collapsed */
+    padding: 10px;
+    background-color: var(--background-primary);
+    overflow-y: auto;
+}
+
+.pomodoro-marker-widget.is-expanded .pomodoro-marker-content {
+    display: block;
+}
+
+.pomodoro-marker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.pomodoro-marker-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 700;
+    color: #fff; 
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.2s, filter 0.2s;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.pomodoro-marker-item:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+
+.pomodoro-marker-delete {
+    opacity: 0.7;
+    cursor: pointer;
+    font-size: 1.1em; /* Unicode X or icon */
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.pomodoro-marker-delete:hover {
+    opacity: 1;
+    background-color: rgba(255,255,255,0.2);
+}
+
+.pomodoro-marker-add-btn {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--background-secondary-alt);
+    border: 1px dashed var(--text-muted);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85em;
+    text-align: center;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.pomodoro-marker-add-btn:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border-color: var(--text-normal);
+}
+
