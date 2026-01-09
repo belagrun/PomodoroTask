@@ -243,16 +243,80 @@ export class PomodoroView extends ItemView {
         const container = this.containerEl.children[1];
         if (!container) return;
 
-        container.empty();
-        container.addClass('pomodoro-view-container');
+        const { state } = this.plugin.timerService;
+        const hasTimerView = container.querySelector('.pomodoro-timer-view');
 
+        // Check if we can just update the existing timer view
+        if (state.state !== 'IDLE' && hasTimerView) {
+            this.updateTimer(container);
+        } else {
+            container.empty();
+            container.addClass('pomodoro-view-container');
+
+            if (state.state !== 'IDLE') {
+                this.renderTimer(container);
+            } else {
+                this.renderTaskList(container);
+                this.renderStats(container);
+            }
+        }
+    }
+
+    updateTimer(container: Element) {
         const { state } = this.plugin.timerService;
 
-        if (state.state !== 'IDLE') {
-            this.renderTimer(container);
+        // Update Label and Styles based on state
+        const label = container.querySelector('.pomodoro-active-task-label') as HTMLElement;
+        if (label) {
+            if (state.pausedTime) {
+                label.innerText = '⏸️ PAUSED';
+                label.style.opacity = '1.0';
+                label.style.color = 'var(--text-warning)';
+            } else {
+                label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
+                label.style.opacity = '';
+                label.style.color = '';
+            }
+        }
+
+        // Update Toggle Icon
+        const toggle = container.querySelector('.pomodoro-subtask-toggle');
+        if (toggle && state.state === 'WORK') {
+            toggle.textContent = this.showSubtasks ? '▼' : '▶';
+        }
+
+        // Update Controls
+        const controls = container.querySelector('.pomodoro-controls');
+        if (controls) {
+            controls.empty();
+            // Pause/Resume Button
+            if (state.pausedTime) {
+                const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ Resume' });
+                resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+            } else {
+                const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ Pause' });
+                pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+            }
+
+            const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / Cancel' });
+            stopBtn.onclick = () => this.plugin.timerService.stopSession();
+        }
+
+        // Update Subtasks Logic
+        const view = container.querySelector('.pomodoro-timer-view');
+        const existingList = container.querySelector('.pomodoro-subtask-list');
+        const existingMsg = container.querySelector('.pomodoro-no-subtasks');
+
+        if (state.state === 'WORK' && this.showSubtasks) {
+            // If list is missing, render it.
+            // If list exists, we call renderSubtasks which will now be smart enough to replace it (see next edit) 
+            // OR we can just assume for Pause/Resume validation that we don't need to refresh.
+            // However, to be fully correct, let's allow refresh but in a non-flickering way.
+            this.renderSubtasks(view);
         } else {
-            this.renderTaskList(container);
-            this.renderStats(container);
+            // Remove if they exist and shouldn't
+            if (existingList) existingList.remove();
+            if (existingMsg) existingMsg.remove();
         }
     }
 
@@ -495,12 +559,25 @@ export class PomodoroView extends ItemView {
             }
         }
 
+        // Find existing elements to replace (to avoid flickering)
+        const oldList = container.querySelector('.pomodoro-subtask-list');
+        const oldMsg = container.querySelector('.pomodoro-no-subtasks');
+
         if (subtasks.length === 0) {
-            container.createDiv({
+            const msgDiv = container.createDiv({
                 text: "No pending subtasks found below.",
                 cls: 'pomodoro-no-subtasks',
                 attr: { style: 'text-align: center; color: var(--text-muted); font-size: 0.9em; margin-top: 10px;' }
             });
+
+            if (oldList) oldList.remove();
+            if (oldMsg) oldMsg.remove(); // Remove old msg if exists (though we just added a new one, we want to replace)
+            // Wait, appending will put it at end. Removing oldMsg (if it was there) is correct.
+            // But if we just appended `msgDiv`, it is now the last child.
+            // If `oldMsg` existed, it was also likely the last child.
+            // So we effectively swapped.
+            // However, to be cleaner let's try to verify if we need to swap specifically.
+            // The simplest approach is Append New -> Remove Old.
             return;
         }
 
@@ -535,6 +612,10 @@ export class PomodoroView extends ItemView {
             linkIcon.title = "Jump to subtask";
             linkIcon.onclick = () => this.jumpToTask(state.taskFile, task.line);
         });
+
+        // Cleanup old elements after new one is inserted
+        if (oldList) oldList.remove();
+        if (oldMsg) oldMsg.remove();
     }
 
     async toggleSubtask(file: TFile, lineIdx: number, text: string, checked: boolean) {
