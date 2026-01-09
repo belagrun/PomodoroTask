@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment } from 'obsidian';
 
 // --- DATA MODELS ---
 
@@ -10,6 +10,8 @@ interface PomodoroTaskSettings {
     subtaskCount: number;
     enableSubtaskLimit: boolean;
     defaultSubtasksExpanded: boolean;
+    showCompletedSubtasks: boolean;
+    showCompletedToday: boolean;
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
@@ -19,7 +21,9 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     longBreakDuration: 15,
     subtaskCount: 3,
     enableSubtaskLimit: true,
-    defaultSubtasksExpanded: true
+    defaultSubtasksExpanded: true,
+    showCompletedSubtasks: false,
+    showCompletedToday: false
 }
 
 interface PomodoroSession {
@@ -652,6 +656,10 @@ export class PomodoroView extends ItemView {
         const tag = this.plugin.settings.tag.trim();
         const limit = this.plugin.settings.subtaskCount;
         const useLimit = this.plugin.settings.enableSubtaskLimit;
+        const showCompleted = this.plugin.settings.showCompletedSubtasks;
+        const showTodayBypass = this.plugin.settings.showCompletedToday;
+
+        const todayStr = moment().format('YYYY-MM-DD');
 
         // 1. Locate the main task line freshly to handle file edits
         let currentTaskLine = state.taskLine;
@@ -672,21 +680,21 @@ export class PomodoroView extends ItemView {
             line: number;
             text: string;
             completed: boolean;
+            isSession: boolean;
+            isToday: boolean;
         }
 
-        const subtasks: SubtaskItem[] = [];
+        const uncheckedCandidates: SubtaskItem[] = [];
+        const checkedCandidates: SubtaskItem[] = [];
+
         const taskRegex = /^\s*[-*] \[ \]/;
         const completedRegex = /^\s*[-*] \[x\]/i;
-
-        let collectedUnchecked = 0;
 
         // 2. Scan lines BELOW the main task
         for (let i = currentTaskLine + 1; i < lines.length; i++) {
             const line = lines[i];
 
             // Stop conditions
-            // We stop only if we encounter another task with the same Pomodoro tag.
-            // checking simple include can be dangerous if tag is used in text.
             const isTaskLine = taskRegex.test(line);
             const isCompletedLine = completedRegex.test(line);
 
@@ -695,27 +703,55 @@ export class PomodoroView extends ItemView {
             }
 
             if (isTaskLine) {
-                // It is an unchecked task
-                if (!useLimit || collectedUnchecked < limit) {
-                    subtasks.push({
-                        line: i,
-                        text: line.replace(taskRegex, '').trim(),
-                        completed: false
-                    });
-                    collectedUnchecked++;
-                }
-            } else if (completedRegex.test(line)) {
-                // It is a completed task
+                uncheckedCandidates.push({
+                    line: i,
+                    text: line.replace(taskRegex, '').trim(),
+                    completed: false,
+                    isSession: false,
+                    isToday: false
+                });
+            } else if (isCompletedLine) {
                 const text = line.replace(completedRegex, '').trim();
-                // Check if it was completed IN THIS SESSION
-                const wasCompletedInSession = state.completedSubtasks.some(stored => text.includes(stored));
+                const isSession = state.completedSubtasks.some(stored => text.includes(stored));
+                // We consider it "today" if it's in the current session OR matches today's date string
+                const isToday = isSession || line.includes(todayStr);
 
-                if (wasCompletedInSession) {
-                    subtasks.push({
-                        line: i,
-                        text: text,
-                        completed: true
-                    });
+                checkedCandidates.push({
+                    line: i,
+                    text: text,
+                    completed: true,
+                    isSession: isSession,
+                    isToday: isToday
+                });
+            }
+        }
+
+        // 3. Select tasks to display
+        const finalTasks: SubtaskItem[] = [];
+        let slots = useLimit ? limit : 9999;
+
+        // Priority 1: Unchecked Tasks
+        for (const task of uncheckedCandidates) {
+            if (slots > 0) {
+                finalTasks.push(task);
+                slots--;
+            }
+        }
+
+        // Priority 2: Completed Tasks (After subtasks)
+        for (const task of checkedCandidates) {
+            // We show if 'Show Completed' setting is On OR if it was completed in this session
+            const shouldShow = showCompleted || task.isSession;
+
+            if (shouldShow) {
+                // Bypass limit if 'Show Today' is On and it is today, OR if it's a session task (always show user actions)
+                const bypassLimit = (showTodayBypass && task.isToday) || task.isSession;
+
+                if (bypassLimit) {
+                    finalTasks.push(task);
+                } else if (slots > 0) {
+                    finalTasks.push(task);
+                    slots--;
                 }
             }
         }
@@ -724,7 +760,7 @@ export class PomodoroView extends ItemView {
         const oldList = container.querySelector('.pomodoro-subtask-list');
         const oldMsg = container.querySelector('.pomodoro-no-subtasks');
 
-        if (subtasks.length === 0) {
+        if (finalTasks.length === 0) {
             const msgDiv = container.createDiv({
                 text: "No pending subtasks found below.",
                 cls: 'pomodoro-no-subtasks',
@@ -732,19 +768,13 @@ export class PomodoroView extends ItemView {
             });
 
             if (oldList) oldList.remove();
-            if (oldMsg) oldMsg.remove(); // Remove old msg if exists (though we just added a new one, we want to replace)
-            // Wait, appending will put it at end. Removing oldMsg (if it was there) is correct.
-            // But if we just appended `msgDiv`, it is now the last child.
-            // If `oldMsg` existed, it was also likely the last child.
-            // So we effectively swapped.
-            // However, to be cleaner let's try to verify if we need to swap specifically.
-            // The simplest approach is Append New -> Remove Old.
+            if (oldMsg) oldMsg.remove(); 
             return;
         }
 
         const listDiv = container.createDiv({ cls: 'pomodoro-subtask-list' });
 
-        subtasks.forEach(task => {
+        finalTasks.forEach(task => {
             const row = listDiv.createDiv({ cls: 'pomodoro-subtask-row' });
             row.style.display = 'flex';
             row.style.alignItems = 'center';
@@ -1018,6 +1048,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                     // Update visibility of the count setting
                     countSetting.settingEl.style.display = value ? 'flex' : 'none';
+                    todaySetting.settingEl.style.display = value ? 'flex' : 'none';
                 }));
 
         const countSetting = new Setting(containerEl)
@@ -1031,7 +1062,28 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
+        new Setting(containerEl)
+            .setName('Show Completed Subtasks')
+            .setDesc('If enabled, completed subtasks will be displayed after pending ones')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showCompletedSubtasks)
+                .onChange(async (value) => {
+                    this.plugin.settings.showCompletedSubtasks = value;
+                    await this.plugin.saveAllData();
+                }));
+
+        const todaySetting = new Setting(containerEl)
+            .setName('Always Show Completed Today')
+            .setDesc('If enabled, tasks completed today will be shown even if the limit is exceeded')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showCompletedToday)
+                .onChange(async (value) => {
+                    this.plugin.settings.showCompletedToday = value;
+                    await this.plugin.saveAllData();
+                }));
+
         // Initial visibility
         countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
+        todaySetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
     }
 }
