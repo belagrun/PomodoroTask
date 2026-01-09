@@ -850,6 +850,22 @@ export class PomodoroView extends ItemView {
         const { state } = this.plugin.timerService;
         const view = container.createDiv({ cls: 'pomodoro-timer-view' });
 
+        // Navigation (Back Arrow)
+        const backBtn = view.createEl('button', { cls: 'clickable-icon pomodoro-back-btn' });
+        setIcon(backBtn, 'arrow-left');
+        backBtn.ariaLabel = "Return to Task List";
+        backBtn.onclick = () => this.plugin.timerService.stopSession();
+
+        // Style: In-flow, Left Aligned
+        backBtn.style.alignSelf = 'flex-start';
+        backBtn.style.background = 'transparent';
+        backBtn.style.border = 'none';
+        backBtn.style.cursor = 'pointer';
+        backBtn.style.opacity = '0.7';
+        backBtn.style.display = 'flex';
+        backBtn.style.padding = '0'; // Minimal padding to reduce height
+        backBtn.style.marginBottom = '8px'; // Space between arrow and card
+        
         // Active Task Card
         const taskCard = view.createDiv({ cls: 'pomodoro-active-task-card' });
 

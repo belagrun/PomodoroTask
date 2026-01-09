@@ -109,7 +109,7 @@
     justify-content: flex-start; /* Changed from center to prevent clipping */
     height: 100%;
     overflow-y: auto; /* Enable scrolling */
-    padding-top: 60px; /* Increased spacing from top to prevent clipping */
+    padding-top: 0; /* Let elements flow naturally */
 }
 
 .pomodoro-active-task-card {
