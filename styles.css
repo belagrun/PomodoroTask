@@ -177,3 +177,25 @@
     font-weight: bold;
     color: var(--text-normal);
 }
+
+/* Cycle Info */
+.pomodoro-cycle-info {
+    text-align: center;
+    font-size: 1em;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    padding: 8px 16px;
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+}
+
+.pomodoro-cycle-label {
+    opacity: 0.8;
+}
+
+.pomodoro-cycle-value {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: var(--text-normal);
+    margin-left: 5px;
+}

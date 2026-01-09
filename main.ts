@@ -423,6 +423,9 @@ export class PomodoroView extends ItemView {
 
         view.createDiv({ cls: 'pomodoro-timer-display', text: timeStr });
 
+        // Cycle Info - read from file to get current [🍅:: N/M] status
+        this.renderCycleInfo(view);
+
         // Controls
         const controls = view.createDiv({ cls: 'pomodoro-controls' });
 
@@ -441,6 +444,43 @@ export class PomodoroView extends ItemView {
         // Subtasks Section
         if (state.state === 'WORK' && this.showSubtasks) {
             this.renderSubtasks(view);
+        }
+    }
+
+    async renderCycleInfo(container: Element) {
+        const { state } = this.plugin.timerService;
+        if (!state.taskFile) return;
+
+        const file = this.plugin.app.vault.getAbstractFileByPath(state.taskFile);
+        if (!(file instanceof TFile)) return;
+
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        const lineIdx = state.taskLine;
+
+        if (lineIdx >= lines.length) return;
+
+        const line = lines[lineIdx];
+        const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+        const match = line.match(tomatoRegex);
+
+        const cycleDiv = container.createDiv({ cls: 'pomodoro-cycle-info' });
+
+        if (match) {
+            const currentCount = parseInt(match[1]);
+            const goalStr = match[2];
+
+            if (goalStr) {
+                const goal = parseInt(goalStr);
+                // Show progress with visual indicator
+                cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Ciclo</span> <span class="pomodoro-cycle-value">${currentCount}/${goal}</span> 🍅`;
+            } else {
+                // No goal, just show count
+                cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Ciclos concluídos</span> <span class="pomodoro-cycle-value">${currentCount}</span> 🍅`;
+            }
+        } else {
+            // No counter yet, this is the first cycle
+            cycleDiv.innerHTML = `<span class="pomodoro-cycle-label">Primeiro ciclo</span> 🍅`;
         }
     }
 
