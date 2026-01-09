@@ -512,8 +512,8 @@ export class PomodoroView extends ItemView {
             if (state.state !== 'IDLE') {
                 this.renderTimer(container);
             } else {
-                this.renderTaskList(container);
                 this.renderStats(container);
+                this.renderTaskList(container);
             }
         }
     }

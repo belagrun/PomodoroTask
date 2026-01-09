@@ -1,6 +1,6 @@
 /* styles.css */
 .pomodoro-view-container {
-    padding: 16px;
+    padding: 24px 16px 16px 16px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -23,6 +23,7 @@
 .pomodoro-task-list {
     flex-grow: 1;
     overflow-y: auto;
+    padding: 10px; /* Added padding to prevent first item clipping and give breathing room */
 }
 
 .pomodoro-task-item {
@@ -65,7 +66,7 @@
     justify-content: flex-start; /* Changed from center to prevent clipping */
     height: 100%;
     overflow-y: auto; /* Enable scrolling */
-    padding-top: 20px; /* Add some spacing from top */
+    padding-top: 60px; /* Increased spacing from top to prevent clipping */
 }
 
 .pomodoro-active-task-card {
@@ -144,9 +145,9 @@
 
 /* Stats */
 .pomodoro-stats {
-    margin-top: auto;
-    padding-top: 15px;
-    border-top: 1px solid var(--background-modifier-border);
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--background-modifier-border);
     font-size: 0.85em;
     color: var(--text-muted);
     display: grid;
