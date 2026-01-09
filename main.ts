@@ -1044,10 +1044,46 @@ export class PomodoroView extends ItemView {
 
             // Add Button
             const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
-            addBtn.innerHTML = '<span>➕</span> Add Marker';
+            addBtn.innerHTML = '<span>➕</span> Add Marker here';
             addBtn.onclick = async (e) => {
                  e.stopPropagation();
-                 await this.addMarker(file!);
+                 
+                 // Get widget header (it was defined in the outer scope, but we need to find it again or ensure scope closure)
+                 // Or just use the closest marker widget parent
+                 const parentWidget = addBtn.closest('.pomodoro-marker-widget');
+                 const widgetHeader = parentWidget?.querySelector('.pomodoro-marker-header');
+
+                 if (!widgetHeader) return;
+
+                 // Get Y position from the header (top of widget + 20px offset)
+                 const headerRect = widgetHeader.getBoundingClientRect();
+                 const targetY = headerRect.top + (headerRect.height / 2);
+                 
+                 // Find the active view to get context
+                 const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                 let calculatedLine = -1;
+                 
+                 if (view && view.file && view.file.path === file!.path) {
+                     // Try to get line from coordinates
+                     // We use an X coordinate inside the content area.
+                     // The view contentEl usually has some margin/padding, so left + 100 should be safe.
+                     const contentRect = view.contentEl.getBoundingClientRect();
+                     // @ts-ignore - access internal editor API
+                     const editor = view.editor as any; 
+                     // Check if posAtCoords exists (standard CM adapter in Obsidian)
+                     if (editor.posAtCoords) {
+                        const coords = { 
+                            left: contentRect.left + 50, 
+                            top: targetY 
+                        };
+                        const pos = editor.posAtCoords(coords);
+                        if (pos) {
+                            calculatedLine = pos.line;
+                        }
+                     }
+                 }
+
+                 await this.addMarker(file!, calculatedLine);
             };
         }
     }
@@ -1060,7 +1096,7 @@ export class PomodoroView extends ItemView {
         return lines.findIndex(line => line.includes(target));
     }
 
-    async addMarker(file: TFile) {
+    async addMarker(file: TFile, overrideLine: number = -1) {
         // Find the leaf that has this file open to get the cursor
         let targetLeaf: WorkspaceLeaf | null = null;
         this.plugin.app.workspace.iterateAllLeaves(leaf => {
@@ -1069,39 +1105,36 @@ export class PomodoroView extends ItemView {
             }
         });
 
-        if (targetLeaf) {
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        const name = `Mark-${Math.floor(Math.random() * 900) + 100}`;
+        const markerText = `<!-- Marker: ${name} -->`;
+        let insertLine = -1;
+
+        if (overrideLine !== -1) {
+            // Use visual line from widget position
+            insertLine = overrideLine;
+            // Ensure we are within bounds
+            if (insertLine < 0) insertLine = 0;
+            if (insertLine > lines.length) insertLine = lines.length;
+        } else if (targetLeaf) {
+            // Fallback to cursor
             // @ts-ignore
             const view = targetLeaf.view as MarkdownView;
-            // Focus to ensure we get a valid cursor (or at least try)
-            // view.editor.focus(); 
-            
             const cursor = view.editor.getCursor();
-            const lineIdx = cursor.line;
-            const content = await this.plugin.app.vault.read(file);
-            const lines = content.split('\n');
-            
-            const name = `Mark-${Math.floor(Math.random() * 900) + 100}`;
-            const markerText = `<!-- Marker: ${name} -->`;
-
-            // Splice inserts AT the index, shifting existing items down.
-            // If the cursor is at line 10, we insert at line 10.
-            // The old line 10 becomes line 11.
-            lines.splice(lineIdx, 0, markerText);
-            
-            await this.plugin.app.vault.modify(file, lines.join('\n'));
-            new Notice(`Added ${name} at line ${lineIdx + 1}`);
-            
-            setTimeout(() => this.render(), 100);
-
+            insertLine = cursor.line;
         } else {
-            // File not open in any leaf? Append.
              // Fallback: Append to end
-            const content = await this.plugin.app.vault.read(file);
-            const name = `Mark-${Math.floor(Math.random() * 900) + 100}`;
-            await this.plugin.app.vault.modify(file, content + `\n<!-- Marker: ${name} -->`);
-            new Notice(`Appended ${name} (File was not open)`);
-            setTimeout(() => this.render(), 100);
+             insertLine = lines.length;
         }
+
+        // Splice inserts AT the index, shifting existing items down.
+        lines.splice(insertLine, 0, markerText);
+        
+        await this.plugin.app.vault.modify(file, lines.join('\n'));
+        new Notice(`Added ${name} at line ${insertLine + 1}`);
+        
+        setTimeout(() => this.render(), 100);
     }
 
     async deleteMarker(file: TFile, lineIdx: number) {
