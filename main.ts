@@ -33,10 +33,10 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     showCompletedSubtasks: false,
     showCompletedToday: false,
     volume: 50,
-    soundWorkStart: 'blip',
-    soundWorkEnd: 'ding',
-    soundBreakEnd: 'chime',
-    soundPause: 'click'
+    soundWorkStart: 'digital',
+    soundWorkEnd: 'none',
+    soundBreakEnd: 'gong',
+    soundPause: 'bell'
 }
 
 // --- SOUNDS ---
@@ -48,7 +48,7 @@ const SOUNDS: Record<string, string> = {
     // Digital Ding (Success/Work End) - Placeholder simulated with short beep logic for brevity in this example 
     // In a real scenario I would put a longer base64 here. I will use a generic beep for now to save tokens, 
     // but imagine these are distinct sounds.
-    'ding': 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU', 
+    'ding': 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
     // Chime (Break End)
     'chime': 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
     // Click (Pause)
@@ -76,7 +76,7 @@ class SoundService {
         // OR rely on the fact that for this task I should generate code that *supports* it.
         // Let's use the browser's AudioContext for synthesized beeps if no file, 
         // OR just try to play the provided source.
-        
+
         // Actually, let's just generate a real simple oscillator beep for "Default" sounds 
         // to ensure the user hears something without needing 50KB of Base64 text.
         this.playTone(soundId, volume);
@@ -85,7 +85,7 @@ class SoundService {
     playTone(type: string, volume: number) {
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioContext) return;
-        
+
         const ctx = new AudioContext();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -94,7 +94,7 @@ class SoundService {
         gain.connect(ctx.destination);
 
         const now = ctx.currentTime;
-        
+
         // Configure sound based on type
         if (type === 'blip') {
             osc.type = 'sine';
@@ -128,8 +128,8 @@ class SoundService {
             osc.start(now);
             osc.stop(now + 0.05);
         } else if (type === 'alarm') {
-             // Three beeps
-             const mkBeep = (t: number) => {
+            // Three beeps
+            const mkBeep = (t: number) => {
                 const o = ctx.createOscillator();
                 const g = ctx.createGain();
                 o.connect(g);
@@ -140,17 +140,17 @@ class SoundService {
                 g.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
                 o.start(t);
                 o.stop(t + 0.2);
-             }
-             mkBeep(now);
-             mkBeep(now + 0.3);
-             mkBeep(now + 0.6);
+            }
+            mkBeep(now);
+            mkBeep(now + 0.3);
+            mkBeep(now + 0.6);
         } else if (type === 'bell') {
             // FM Synthesis for Bell
             const pOsc = ctx.createOscillator();
             const pGain = ctx.createGain();
             pOsc.connect(pGain);
             pGain.connect(osc.frequency);
-            
+
             pOsc.type = 'sine';
             pOsc.frequency.value = 440; // Modulation freq
             pGain.gain.setValueAtTime(1000, now);
@@ -178,7 +178,7 @@ class SoundService {
             noise.connect(ctx.destination); // Direct connect for sharp tick
             noise.start(now);
         } else if (type === 'tock') {
-             // Lower/Duller Tick (Sine burst)
+            // Lower/Duller Tick (Sine burst)
             osc.type = 'sine';
             osc.frequency.setValueAtTime(600, now);
             osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
@@ -195,7 +195,7 @@ class SoundService {
             osc.start(now);
             osc.stop(now + 0.1);
         } else if (type === 'gong') {
-             // Low Sine with long decay
+            // Low Sine with long decay
             osc.type = 'sine';
             osc.frequency.setValueAtTime(220, now);
             gain.gain.setValueAtTime(volume, now);
@@ -222,7 +222,7 @@ class SoundService {
             osc.start(now);
             osc.stop(now + 0.2);
         } else if (type === 'digital') {
-             // Digital Watch Beep-Beep
+            // Digital Watch Beep-Beep
             osc.type = 'square';
             osc.frequency.setValueAtTime(3000, now);
             gain.gain.setValueAtTime(volume, now);
@@ -321,7 +321,7 @@ class TimerService {
             completedSubtasks: [],
             overrides: overrides
         };
-        
+
         // Play start sound if explicitly starting work (or just starting any session?)
         // User asked for "Início do ciclo".
         if (type === 'WORK') {
@@ -484,7 +484,7 @@ class TimerService {
             // but we can infer or just use the generic Break End for now, 
             // OR checks against settings.
             const isLong = this.state.duration >= this.plugin.settings.longBreakDuration;
-            
+
             if (isLong) {
                 // If user wants specific sound for long break, we could add a setting.
                 // For now, let's use the 'chime' or a distinct 'alarm' if available?
@@ -730,8 +730,8 @@ export class PomodoroView extends ItemView {
         // Mask Code Blocks to support Dataview scripts or inline code that contains removal symbols
         const placeHolders: string[] = [];
         clean = clean.replace(/(`+)([\s\S]*?)\1/g, (match) => {
-             placeHolders.push(match);
-             return `__CODE_${placeHolders.length - 1}__`;
+            placeHolders.push(match);
+            return `__CODE_${placeHolders.length - 1}__`;
         });
 
         // 1. Remove Pomodoro Counter
@@ -771,8 +771,8 @@ export class PomodoroView extends ItemView {
         // Mask Code Blocks
         const placeHolders: string[] = [];
         clean = clean.replace(/(`+)([\s\S]*?)\1/g, (match) => {
-             placeHolders.push(match);
-             return `__CODE_${placeHolders.length - 1}__`;
+            placeHolders.push(match);
+            return `__CODE_${placeHolders.length - 1}__`;
         });
 
         // 1. Remove Pomodoro Counter
@@ -919,7 +919,7 @@ export class PomodoroView extends ItemView {
         backBtn.style.cursor = 'pointer';
         backBtn.style.opacity = '0.7';
         backBtn.style.padding = '0';
-        
+
         // Right Side Controls (Settings + Refresh)
         const topControls = navBar.createDiv({ attr: { style: 'display: flex; gap: 12px; align-items: center;' } });
 
@@ -1012,7 +1012,7 @@ export class PomodoroView extends ItemView {
 
         // Clean task text
         const cleanedText = this.cleanTaskText(state.taskText);
-        
+
         // Render Markdown/Script
         const textDiv = textContainer.createDiv({ cls: 'pomodoro-active-task-text' });
         MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, this);
@@ -1088,10 +1088,10 @@ export class PomodoroView extends ItemView {
     async populateCycleInfo(cycleDiv: Element) {
         cycleDiv.empty();
         const { state } = this.plugin.timerService;
-        
+
         const iconSpan = cycleDiv.createSpan();
         iconSpan.innerText = '🍅';
-        
+
         const valueSpan = cycleDiv.createSpan({ cls: 'pomodoro-cycle-value' });
 
         if (!state.taskFile) {
@@ -1101,7 +1101,7 @@ export class PomodoroView extends ItemView {
 
         const file = this.plugin.app.vault.getAbstractFileByPath(state.taskFile);
         if (!(file instanceof TFile)) {
-             valueSpan.innerText = '--';
+            valueSpan.innerText = '--';
             return;
         }
 
@@ -1110,7 +1110,7 @@ export class PomodoroView extends ItemView {
         const lineIdx = state.taskLine;
 
         if (lineIdx >= lines.length) {
-             valueSpan.innerText = '--';
+            valueSpan.innerText = '--';
             return;
         }
 
@@ -1134,7 +1134,7 @@ export class PomodoroView extends ItemView {
             valueSpan.innerText = '--';
             valueSpan.style.cursor = 'pointer';
             valueSpan.title = "Click to set Pomodoro goal";
-            
+
             valueSpan.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1160,7 +1160,7 @@ export class PomodoroView extends ItemView {
         const finish = async () => {
             const val = parseInt(input.value);
             if (!isNaN(val) && val > 0) {
-                 await this.updateTaskCycleGoal(file, lineIdx, val);
+                await this.updateTaskCycleGoal(file, lineIdx, val);
             }
             this.render();
         };
@@ -1184,7 +1184,7 @@ export class PomodoroView extends ItemView {
         if (lineIdx < lines.length) {
             let line = lines[lineIdx];
             const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
-            
+
             if (!tomatoRegex.test(line)) {
                 // Determine placement
                 // Try to find checkbox pattern: whitespace + list char + [ ] + whitespace
@@ -1205,7 +1205,7 @@ export class PomodoroView extends ItemView {
                         const text = indentMatch[2];
                         lines[lineIdx] = `${indent}[🍅:: 0/${goal}] ${text}`;
                     } else {
-                          lines[lineIdx] = `[🍅:: 0/${goal}] ${line}`;
+                        lines[lineIdx] = `[🍅:: 0/${goal}] ${line}`;
                     }
                 }
 
@@ -1344,48 +1344,48 @@ export class PomodoroView extends ItemView {
 
             // Detect Dataview or heavy script usage that causes delay/flash
             const isDataview = /\$=|::|`/.test(task.text);
-            
+
             if (isDataview) {
-                 // Add loading spinner
-                 const loader = item.createDiv({ cls: 'pomodoro-loader-overlay' });
-                 loader.createDiv({ cls: 'pomodoro-loader-spinner' });
+                // Add loading spinner
+                const loader = item.createDiv({ cls: 'pomodoro-loader-overlay' });
+                loader.createDiv({ cls: 'pomodoro-loader-spinner' });
 
-                 // Hide content initially to prevent flash of raw code
-                 cleanSpan.style.display = 'none'; 
+                // Hide content initially to prevent flash of raw code
+                cleanSpan.style.display = 'none';
 
-                 // Use MutationObserver to detect DOM changes (script rendering)
-                 const observer = new MutationObserver((mutations) => {
-                     const currentText = cleanSpan.innerText || "";
-                     
-                     // Stronger check: If it contains "$=" or "::" followed by letters, it's likely still raw code.
-                     const hasRawDataview = /\$=/.test(currentText);
-                     const hasRawInline = /::/.test(currentText); // Might be legitimate text, but often dataview key::value
+                // Use MutationObserver to detect DOM changes (script rendering)
+                const observer = new MutationObserver((mutations) => {
+                    const currentText = cleanSpan.innerText || "";
 
-                     // We consider it "ready" when:
-                     // 1. We have content (children > 0)
-                     // 2. The obvious raw markers ($=) are gone.
-                     if (cleanSpan.childElementCount > 0 && !hasRawDataview) {
-                         cleanSpan.style.display = '';
-                         cleanSpan.animate([
+                    // Stronger check: If it contains "$=" or "::" followed by letters, it's likely still raw code.
+                    const hasRawDataview = /\$=/.test(currentText);
+                    const hasRawInline = /::/.test(currentText); // Might be legitimate text, but often dataview key::value
+
+                    // We consider it "ready" when:
+                    // 1. We have content (children > 0)
+                    // 2. The obvious raw markers ($=) are gone.
+                    if (cleanSpan.childElementCount > 0 && !hasRawDataview) {
+                        cleanSpan.style.display = '';
+                        cleanSpan.animate([
                             { opacity: 0 },
                             { opacity: 1 }
-                         ], { duration: 200 });
-                         
-                         if(loader.parentElement) loader.remove();
-                         observer.disconnect();
-                     }
-                 });
-                 
-                 observer.observe(cleanSpan, { childList: true, subtree: true, characterData: true });
+                        ], { duration: 200 });
 
-                 // Fallback timeout extended to 4s for slower Dataview queries
-                 setTimeout(() => {
-                     if (cleanSpan.style.display === 'none') {
-                        cleanSpan.style.display = '';
-                        if(loader.parentElement) loader.remove();
+                        if (loader.parentElement) loader.remove();
                         observer.disconnect();
-                     }
-                 }, 4000); 
+                    }
+                });
+
+                observer.observe(cleanSpan, { childList: true, subtree: true, characterData: true });
+
+                // Fallback timeout extended to 4s for slower Dataview queries
+                setTimeout(() => {
+                    if (cleanSpan.style.display === 'none') {
+                        cleanSpan.style.display = '';
+                        if (loader.parentElement) loader.remove();
+                        observer.disconnect();
+                    }
+                }, 4000);
             }
 
             MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, this);
@@ -1582,7 +1582,7 @@ export class PomodoroView extends ItemView {
 
             const textDiv = row.createDiv({ cls: 'pomodoro-subtask-text' });
             MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, this);
-            
+
             if (task.completed) {
                 textDiv.style.textDecoration = 'line-through';
                 textDiv.style.opacity = '0.6';
@@ -2007,7 +2007,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                     this.plugin.timerService.soundService.play(val);
                 }));
-        
+
         new Setting(containerEl)
             .setName('Pause Sound')
             .setDesc('Sound to play when timer is paused')
