@@ -201,9 +201,27 @@
     line-height: normal;
 }
 
-.pomodoro-cycle-value {
-    font-weight: 800;
-    font-size: 0.9rem;
-    color: var(--text-normal);
-    line-height: normal;
+
+/* Floating Stats */
+.pomodoro-floating-stats {
+    position: fixed;
+    bottom: 35px; /* Above status bar */
+    right: 25px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--text-muted);
+    z-index: 9999;
+    pointer-events: none; /* Let clicks pass through */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.theme-dark .pomodoro-floating-stats {
+     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }

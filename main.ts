@@ -263,7 +263,8 @@ export const POMODORO_VIEW_TYPE = "pomodoro-view";
 export class PomodoroView extends ItemView {
     plugin: PomodoroTaskPlugin;
     showSubtasks: boolean;
-
+    floatingStats: HTMLElement | null = null;
+    
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
         this.plugin = plugin;
@@ -277,7 +278,12 @@ export class PomodoroView extends ItemView {
         this.render();
     }
 
-    async onClose() { }
+    async onClose() { 
+        if (this.floatingStats) {
+            this.floatingStats.remove();
+            this.floatingStats = null;
+        }
+    }
 
     cleanTaskText(text: string): string {
         if (!text) return "";
@@ -317,6 +323,12 @@ export class PomodoroView extends ItemView {
         if (state.state !== 'IDLE' && hasTimerView) {
             this.updateTimer(container);
         } else {
+            // Clean up global float if entering IDLE or non-timer state
+            if (state.state === 'IDLE' && this.floatingStats) {
+                 this.floatingStats.remove();
+                 this.floatingStats = null;
+            }
+
             container.empty();
             container.addClass('pomodoro-view-container');
 
@@ -747,6 +759,7 @@ export class PomodoroView extends ItemView {
             }
         }
 
+
         // 3. Select tasks to display
         const finalTasks: SubtaskItem[] = [];
         let slots = useLimit ? limit : 9999;
@@ -758,6 +771,7 @@ export class PomodoroView extends ItemView {
                 slots--;
             }
         }
+
 
         // Priority 2: Completed Tasks (After subtasks)
         for (const task of checkedCandidates) {
@@ -777,9 +791,41 @@ export class PomodoroView extends ItemView {
             }
         }
 
+        // Stats Logic (Floating)
+        const totalPending = uncheckedCandidates.length;
+        const totalSubtasks = uncheckedCandidates.length + checkedCandidates.length;
+
+        // Create or Update Floating Stats
+        if (!this.floatingStats) {
+             this.floatingStats = createDiv({ cls: 'pomodoro-floating-stats' });
+             document.body.appendChild(this.floatingStats);
+        }
+        
+        // Update content: Icon + Text
+        // Icon: Plug for check ? Or use the check circle?
+        // User requested: (3,40) style. Actually (20 of 40 tasks).
+        // Let's use: ⚡ (Pending / Total) or similar.
+        // User image shows: CircleCheck Icon + Plug + PT: ON.
+        // But user asked to "add a small text... (20 of 40)... centered to the dash but before it".
+        // The previous request was for inline. Now user wants it floating.
+        // Let's keep it simple: "Tasks: 20 / 40" or just "20 / 40".
+        // Let's use a small icon + numbers.
+        this.floatingStats.empty();
+        
+        // Icon
+        const iconSpan = this.floatingStats.createSpan({ cls: 'pomodoro-floating-icon' });
+        setIcon(iconSpan, 'check-circle-2'); // Small check icon
+        
+        // Text
+        const textSpan = this.floatingStats.createSpan();
+        textSpan.innerText = `${totalPending} / ${totalSubtasks}`;
+
         // Find existing elements to replace (to avoid flickering)
         const oldList = container.querySelector('.pomodoro-subtask-list');
         const oldMsg = container.querySelector('.pomodoro-no-subtasks');
+        const oldStats = container.querySelector('.pomodoro-subtask-stats');
+
+        if (oldStats) oldStats.remove(); // Remove the inline stats if they exist
 
         if (finalTasks.length === 0) {
             const msgDiv = container.createDiv({
