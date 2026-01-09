@@ -1,0 +1,144 @@
+/* styles.css */
+.pomodoro-view-container {
+    padding: 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.pomodoro-header {
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 10px;
+}
+
+.pomodoro-header h4 {
+    margin: 0;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+/* Task List */
+.pomodoro-task-list {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.pomodoro-task-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pomodoro-task-item:hover {
+    background-color: var(--background-modifier-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-color: var(--interactive-accent);
+}
+
+.pomodoro-task-icon {
+    color: var(--text-muted);
+    margin-right: 10px;
+}
+
+.pomodoro-task-text {
+    flex: 1;
+    font-size: 0.95em;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* Timer View */
+.pomodoro-timer-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.pomodoro-active-task-card {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: 15px;
+    border-radius: 12px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.pomodoro-active-task-label {
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+.pomodoro-active-task-text {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.pomodoro-timer-display {
+    font-size: 4em;
+    font-weight: 700;
+    font-family: var(--font-monospace);
+    color: var(--text-normal);
+    margin: 10px 0 25px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pomodoro-controls {
+    display: flex;
+    gap: 15px;
+}
+
+.pomodoro-btn {
+    padding: 8px 24px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.pomodoro-btn-stop {
+    background-color: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    border: none;
+}
+.pomodoro-btn-stop:hover {
+    background-color: var(--background-modifier-error-hover);
+}
+
+/* Stats */
+.pomodoro-stats {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid var(--background-modifier-border);
+    font-size: 0.85em;
+    color: var(--text-muted);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.pomodoro-stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.pomodoro-stat-value {
+    font-weight: bold;
+    color: var(--text-normal);
+}

@@ -1,0 +1,10 @@
+{
+	"id": "pomodoro-task",
+	"name": "Pomodoro Task",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Turns tasks with a specific tag into Pomodoro sessions.",
+	"author": "GitHub Copilot",
+	"authorUrl": "https://github.com",
+	"isDesktopOnly": false
+}
