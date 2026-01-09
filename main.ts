@@ -9,6 +9,7 @@ interface PomodoroTaskSettings {
     longBreakDuration: number;
     subtaskCount: number;
     enableSubtaskLimit: boolean;
+    defaultSubtasksExpanded: boolean;
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
@@ -17,7 +18,8 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     shortBreakDuration: 5,
     longBreakDuration: 15,
     subtaskCount: 3,
-    enableSubtaskLimit: true
+    enableSubtaskLimit: true,
+    defaultSubtasksExpanded: true
 }
 
 interface PomodoroSession {
@@ -256,11 +258,12 @@ export const POMODORO_VIEW_TYPE = "pomodoro-view";
 
 export class PomodoroView extends ItemView {
     plugin: PomodoroTaskPlugin;
-    showSubtasks: boolean = false;
+    showSubtasks: boolean;
 
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
         this.plugin = plugin;
+        this.showSubtasks = this.plugin.settings.defaultSubtasksExpanded;
     }
 
     getViewType() { return POMODORO_VIEW_TYPE; }
@@ -947,6 +950,16 @@ class PomodoroSettingTab extends PluginSettingTab {
                 .setValue(String(this.plugin.settings.longBreakDuration))
                 .onChange(async (value) => {
                     this.plugin.settings.longBreakDuration = Number(value);
+                    await this.plugin.saveAllData();
+                }));
+
+        new Setting(containerEl)
+            .setName('Default Subtasks Expanded')
+            .setDesc('Should subtasks be visible by default when starting a task?')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.defaultSubtasksExpanded)
+                .onChange(async (value) => {
+                    this.plugin.settings.defaultSubtasksExpanded = value;
                     await this.plugin.saveAllData();
                 }));
 
