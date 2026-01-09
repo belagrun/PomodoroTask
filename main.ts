@@ -1491,12 +1491,12 @@ export class PomodoroView extends ItemView {
                 await this.toggleSubtask(file, task.line, task.text, checkbox.checked);
             };
 
-            const textSpan = row.createSpan({ text: task.text });
-            textSpan.style.marginLeft = '8px';
-            textSpan.style.flex = '1';
+            const textDiv = row.createDiv({ cls: 'pomodoro-subtask-text' });
+            MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, this);
+            
             if (task.completed) {
-                textSpan.style.textDecoration = 'line-through';
-                textSpan.style.opacity = '0.6';
+                textDiv.style.textDecoration = 'line-through';
+                textDiv.style.opacity = '0.6';
             }
 
             const linkIcon = row.createSpan({ text: '🔗', cls: 'pomodoro-subtask-link' });
