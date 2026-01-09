@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer } from 'obsidian';
 
 // --- DATA MODELS ---
 
@@ -727,6 +727,13 @@ export class PomodoroView extends ItemView {
         if (!text) return "";
         let clean = text;
 
+        // Mask Code Blocks to support Dataview scripts or inline code that contains removal symbols
+        const placeHolders: string[] = [];
+        clean = clean.replace(/(`+)([\s\S]*?)\1/g, (match) => {
+             placeHolders.push(match);
+             return `__CODE_${placeHolders.length - 1}__`;
+        });
+
         // 1. Remove Pomodoro Counter
         clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
 
@@ -746,7 +753,15 @@ export class PomodoroView extends ItemView {
         }
 
         // 5. Cleanup extra spaces
-        return clean.replace(/\s+/g, ' ').trim();
+        clean = clean.replace(/\s+/g, ' ').trim();
+
+        // 6. Restore Code Blocks
+        clean = clean.replace(/__CODE_(\d+)__/g, (match, idStr) => {
+            const id = parseInt(idStr);
+            return placeHolders[id] || match;
+        });
+
+        return clean;
     }
 
     render() {
@@ -954,11 +969,12 @@ export class PomodoroView extends ItemView {
         textContainer.style.justifyContent = 'space-between';
         textContainer.style.alignItems = 'center';
 
-        // Clean and Truncate task text
+        // Clean task text
         const cleanedText = this.cleanTaskText(state.taskText);
-        const displayText = cleanedText.length > 60 ? cleanedText.substring(0, 60) + '...' : cleanedText;
-
-        textContainer.createDiv({ text: displayText, cls: 'pomodoro-active-task-text' });
+        
+        // Render Markdown/Script
+        const textDiv = textContainer.createDiv({ cls: 'pomodoro-active-task-text' });
+        MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, this);
 
         // Link Icon
         const linkBtn = textContainer.createEl('button', { cls: 'pomodoro-link-btn', text: '🔗' });
@@ -1282,13 +1298,12 @@ export class PomodoroView extends ItemView {
             // Right Side (Text)
             const textContainer = item.createDiv({ cls: 'pomodoro-task-text-container' });
 
-            // Clean Text (Default visible)
-            const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean', text: cleanText });
+            // Clean Text (Default visible) - Use Markdown Render
+            const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean' });
+            MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, this);
 
-            // Full Text (Hover visible)
-            // We strip the [🍅:: ..] tag from the full text to avoid duplication if we want smoothness,
-            // or just render raw. User asked "task sem as coisas do obsidian... quando done...".
-            // Implication: Hover = Full Raw Text (maybe minus the tag if we want to be fancy, but raw is safer for context).
+            // Full Text (Hover visible) - Raw text is fine for tooltips/hover, 
+            // but user might want to see the code there. Let's keep it text for now as it's the "raw" view.
             const fullSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-full', text: task.text });
 
 

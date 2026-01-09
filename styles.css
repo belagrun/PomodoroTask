@@ -82,6 +82,11 @@
     display: block;
 }
 
+.pomodoro-task-text-clean p {
+    margin: 0;
+}
+
+
 .pomodoro-task-text-full {
     font-size: 0.9em;
     font-weight: 400;
@@ -135,6 +140,17 @@
     font-weight: bold;
     margin-top: 5px;
 }
+
+.pomodoro-active-task-text p {
+    margin: 0;
+    line-height: 1.3;
+}
+
+.pomodoro-active-task-text .cm-s-obsidian,
+.pomodoro-active-task-text .markdown-render {
+    display: inline;
+}
+
 
 .pomodoro-timer-display {
     font-size: 4em;
