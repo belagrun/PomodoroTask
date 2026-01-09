@@ -19,6 +19,8 @@ interface PomodoroTaskSettings {
     soundWorkEnd: string;
     soundBreakEnd: string;
     soundPause: string;
+    // UI Settings
+    markerWidgetPos: { x: number, y: number } | null;
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
@@ -36,7 +38,8 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     soundWorkStart: 'digital',
     soundWorkEnd: 'none',
     soundBreakEnd: 'gong',
-    soundPause: 'bell'
+    soundPause: 'bell',
+    markerWidgetPos: null
 }
 
 // --- SOUNDS ---
@@ -879,16 +882,82 @@ export class PomodoroView extends ItemView {
         if (!widget) {
             widget = parent.createDiv({ cls: 'pomodoro-marker-widget' });
             
+            // Restore position if valid
+            const savedPos = this.plugin.settings.markerWidgetPos;
+            if (savedPos) {
+                 widget.style.right = 'auto';
+                 widget.style.bottom = 'auto';
+                 widget.style.left = savedPos.x + 'px';
+                 widget.style.top = savedPos.y + 'px';
+            }
+
             // Header
             const header = widget.createDiv({ cls: 'pomodoro-marker-header' });
+            
+            // Drag Logic
+            let isDragging = false;
+            let startX = 0;
+            let startY = 0;
+            let initialLeft = 0;
+            let initialTop = 0;
+            let hasMoved = false;
+
+            header.onmousedown = (e) => {
+                isDragging = true;
+                hasMoved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = widget.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+                
+                // Clear default styles if set via CSS (right/bottom) to allow absolute positioning via left/top
+                widget.style.right = 'auto';
+                widget.style.bottom = 'auto';
+                widget.style.left = initialLeft + 'px';
+                widget.style.top = initialTop + 'px';
+                
+                // Add temp global listeners
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                e.preventDefault(); // Prevent text selection
+            };
+
+            const onMouseMove = (e: MouseEvent) => {
+                if (!isDragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+
+                widget.style.left = (initialLeft + dx) + 'px';
+                widget.style.top = (initialTop + dy) + 'px';
+            };
+
+            const onMouseUp = async () => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+
+                // Save position
+                const rect = widget.getBoundingClientRect();
+                this.plugin.settings.markerWidgetPos = { x: rect.left, y: rect.top };
+                await this.plugin.saveAllData();
+            };
+
             header.onclick = (e) => {
                 e.stopPropagation();
-                this.markerWidgetExpanded = !this.markerWidgetExpanded;
-                this.renderMarkers(container); // Re-render to update classes
+                // Only toggle if we didn't drag significantly
+                if (!hasMoved) {
+                    this.markerWidgetExpanded = !this.markerWidgetExpanded;
+                    this.renderMarkers(container); // Re-render to update classes
+                }
             };
             
             // Add tooltip to explain it is draggable or fixed
-            header.title = "Page Markers";
+            header.title = "Drag to move • Click to toggle";
+            header.style.cursor = "move"; // Indicate draggable
 
             const icon = header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
             const title = header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
