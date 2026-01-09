@@ -7,13 +7,15 @@ interface PomodoroTaskSettings {
     workDuration: number; // minutes
     shortBreakDuration: number;
     longBreakDuration: number;
+    subtaskCount: number;
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
 	tag: '#pomodoro',
     workDuration: 25,
     shortBreakDuration: 5,
-    longBreakDuration: 15
+    longBreakDuration: 15,
+    subtaskCount: 3
 }
 
 interface PomodoroSession {
@@ -24,6 +26,7 @@ interface PomodoroSession {
     taskLine: number;
     taskFile: string;
     taskText: string;
+    completedSubtasks: string[]; // List of subtask texts completed in this session
 }
 
 interface PomodoroStats {
@@ -47,7 +50,8 @@ class TimerService {
         taskId: null,
         taskLine: -1,
         taskFile: '',
-        taskText: ''
+        taskText: '',
+        completedSubtasks: []
     };
     intervalId: any;
 
@@ -83,7 +87,8 @@ class TimerService {
             taskId: task.file.path + ':' + task.line,
             taskLine: task.line,
             taskFile: task.file.path,
-            taskText: task.text
+            taskText: task.text,
+            completedSubtasks: []
         };
         this.saveState();
         this.startTick();
@@ -99,6 +104,7 @@ class TimerService {
              taskId: null,
              taskLine: -1,
              taskFile: '',
+             completedSubtasks: [],
              taskText: ''
         };
         this.saveState();
@@ -188,6 +194,7 @@ export const POMODORO_VIEW_TYPE = "pomodoro-view";
 
 export class PomodoroView extends ItemView {
     plugin: PomodoroTaskPlugin;
+    showSubtasks: boolean = false;
 
     constructor(leaf: WorkspaceLeaf, plugin: PomodoroTaskPlugin) {
         super(leaf);
@@ -227,11 +234,52 @@ export class PomodoroView extends ItemView {
         
         // Active Task Card
         const taskCard = view.createDiv({ cls: 'pomodoro-active-task-card' });
-        taskCard.createDiv({ cls: 'pomodoro-active-task-label', text: state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK' });
         
+         // Header (Clickable for subtasks)
+        const header = taskCard.createDiv({ cls: 'pomodoro-active-task-header' });
+        header.style.cursor = 'pointer';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+
+        const label = header.createDiv({ cls: 'pomodoro-active-task-label', text: state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK' });
+        
+        // Toggle indicator
+        if (state.state === 'WORK') {
+            const toggleIcon = header.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
+            toggleIcon.style.fontSize = '0.8em';
+            toggleIcon.style.opacity = '0.7';
+        }
+        
+        header.onclick = () => {
+            if (state.state === 'WORK') {
+                this.showSubtasks = !this.showSubtasks;
+                this.render();
+            }
+        };
+
+        // Task Text Container
+        const textContainer = taskCard.createDiv({ cls: 'pomodoro-active-task-text-container' });
+        textContainer.style.display = 'flex';
+        textContainer.style.justifyContent = 'space-between';
+        textContainer.style.alignItems = 'center';
+
         // Truncate task text if too long
         const displayText = state.taskText.length > 60 ? state.taskText.substring(0, 60) + '...' : state.taskText;
-        taskCard.createDiv({ text: displayText, cls: 'pomodoro-active-task-text' });
+        textContainer.createDiv({ text: displayText, cls: 'pomodoro-active-task-text' });
+
+         // Link Icon
+        const linkBtn = textContainer.createEl('button', { cls: 'pomodoro-link-btn', text: '🔗' });
+        linkBtn.classList.add('clickable-icon');
+        linkBtn.style.background = 'none';
+        linkBtn.style.border = 'none';
+        linkBtn.style.padding = '0 5px';
+        linkBtn.style.cursor = 'pointer';
+        linkBtn.title = "Go to task";
+        linkBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.jumpToTask(state.taskFile, state.taskLine);
+        };
 
         // Timer Display
         const timeLeft = this.plugin.timerService.getTimeLeft();
@@ -245,6 +293,11 @@ export class PomodoroView extends ItemView {
         const controls = view.createDiv({ cls: 'pomodoro-controls' });
         const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / Cancel' });
         stopBtn.onclick = () => this.plugin.timerService.stopSession();
+
+        // Subtasks Section
+        if (state.state === 'WORK' && this.showSubtasks) {
+            this.renderSubtasks(view);
+        }
     }
 
     async renderTaskList(container: Element) {
@@ -314,6 +367,164 @@ export class PomodoroView extends ItemView {
                this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
            });
         });
+    }
+
+    async renderSubtasks(container: Element) {
+        const { state } = this.plugin.timerService;
+        if (!state.taskFile) return;
+
+        const file = this.plugin.app.vault.getAbstractFileByPath(state.taskFile);
+        if (!(file instanceof TFile)) return;
+
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        const tag = this.plugin.settings.tag.trim();
+        const limit = this.plugin.settings.subtaskCount;
+        
+        // 1. Locate the main task line freshly to handle file edits
+        let currentTaskLine = state.taskLine;
+        const cleanTaskText = state.taskText.substring(0, 15); 
+        
+        // Use a clean check (fuzzy)
+        if (currentTaskLine >= lines.length || !lines[currentTaskLine].includes(cleanTaskText)) {
+            // It moved or line changed significantly. Scan for it.
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes(cleanTaskText) && lines[i].includes(tag)) {
+                    currentTaskLine = i;
+                    break;
+                }
+            }
+        }
+
+        interface SubtaskItem {
+            line: number;
+            text: string;
+            completed: boolean;
+        }
+        
+        const subtasks: SubtaskItem[] = [];
+        const taskRegex = /^\s*[-*] \[ \]/; 
+        const completedRegex = /^\s*[-*] \[x\]/i;
+        
+        let collectedUnchecked = 0;
+
+        // 2. Scan lines BELOW the main task
+        for (let i = currentTaskLine + 1; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Stop conditions
+            // We stop only if we encounter another task with the same Pomodoro tag.
+            // checking simple include can be dangerous if tag is used in text.
+            const isTaskLine = taskRegex.test(line);
+            const isCompletedLine = completedRegex.test(line);
+
+            if ((isTaskLine || isCompletedLine) && line.includes(tag)) {
+                break; 
+            }
+
+            if (isTaskLine) {
+                // It is an unchecked task
+                if (collectedUnchecked < limit) {
+                    subtasks.push({
+                        line: i,
+                        text: line.replace(taskRegex, '').trim(),
+                        completed: false
+                    });
+                    collectedUnchecked++;
+                }
+            } else if (completedRegex.test(line)) {
+                // It is a completed task
+                const text = line.replace(completedRegex, '').trim();
+                // Check if it was completed IN THIS SESSION
+                const wasCompletedInSession = state.completedSubtasks.some(stored => text.includes(stored));
+
+                if (wasCompletedInSession) {
+                     subtasks.push({
+                        line: i,
+                        text: text,
+                        completed: true
+                    });
+                }
+            }
+        }
+        
+        if (subtasks.length === 0) {
+            container.createDiv({ 
+                text: "No pending subtasks found below.", 
+                cls: 'pomodoro-no-subtasks',
+                attr: { style: 'text-align: center; color: var(--text-muted); font-size: 0.9em; margin-top: 10px;' } 
+            });
+            return;
+        }
+
+        const listDiv = container.createDiv({ cls: 'pomodoro-subtask-list' });
+        listDiv.style.marginTop = '15px';
+        listDiv.style.borderTop = '1px solid var(--background-modifier-border)';
+        listDiv.style.paddingTop = '10px';
+
+        subtasks.forEach(task => {
+            const row = listDiv.createDiv({ cls: 'pomodoro-subtask-row' });
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.marginBottom = '5px';
+            row.style.fontSize = '0.9em';
+
+            const checkbox = row.createEl('input', { type: 'checkbox' });
+            checkbox.checked = task.completed;
+            
+            checkbox.onchange = async () => {
+                 await this.toggleSubtask(file, task.line, task.text, checkbox.checked);
+            };
+
+            const textSpan = row.createSpan({ text: task.text });
+            textSpan.style.marginLeft = '8px';
+            textSpan.style.flex = '1';
+            if (task.completed) {
+                textSpan.style.textDecoration = 'line-through';
+                textSpan.style.opacity = '0.6';
+            }
+
+            const linkIcon = row.createSpan({ text: '🔗', cls: 'pomodoro-subtask-link' });
+            linkIcon.style.cursor = 'pointer';
+            linkIcon.style.opacity = '0.5';
+            linkIcon.style.fontSize = '0.8em';
+            linkIcon.title = "Jump to subtask";
+            linkIcon.onclick = () => this.jumpToTask(state.taskFile, task.line);
+        });
+    }
+
+    async toggleSubtask(file: TFile, lineIdx: number, text: string, checked: boolean) {
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        if (lines.length <= lineIdx) return;
+        
+        let line = lines[lineIdx];
+        if (checked) {
+            line = line.replace('[ ]', '[x]');
+            this.plugin.timerService.state.completedSubtasks.push(text);
+        } else {
+            line = line.replace('[x]', '[ ]').replace('[X]', '[ ]');
+            this.plugin.timerService.state.completedSubtasks = this.plugin.timerService.state.completedSubtasks.filter(t => t !== text);
+        }
+        
+        lines[lineIdx] = line;
+        await this.plugin.app.vault.modify(file, lines.join('\n'));
+        await this.plugin.timerService.saveState();
+        this.render();
+    }
+
+    async jumpToTask(filePath: string, line: number) {
+        const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+        if (file instanceof TFile) {
+             const leaf = this.plugin.app.workspace.getLeaf(false);
+             await leaf.openFile(file);
+             const view = leaf.view as MarkdownView;
+             if (view && view.editor) {
+                 view.editor.setCursor({ line: line, ch: 0 });
+                 view.editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
+                 view.editor.focus();
+             }
+        }
     }
 
     renderStats(container: Element) {
@@ -500,5 +711,16 @@ class PomodoroSettingTab extends PluginSettingTab {
 					this.plugin.settings.longBreakDuration = Number(value);
                     await this.plugin.saveAllData();
 				}));
+
+        new Setting(containerEl)
+            .setName('Subtasks per Session')
+            .setDesc('How many subtasks to show in the timer view')
+            .addText(text => text
+                .setPlaceholder('3')
+                .setValue(String(this.plugin.settings.subtaskCount))
+                .onChange(async (value) => {
+                    this.plugin.settings.subtaskCount = Number(value);
+                    await this.plugin.saveAllData();
+                }));
 	}
 }
