@@ -764,6 +764,40 @@ export class PomodoroView extends ItemView {
         return clean;
     }
 
+    cleanTaskTextForHover(text: string): string {
+        if (!text) return "";
+        let clean = text;
+
+        // Mask Code Blocks
+        const placeHolders: string[] = [];
+        clean = clean.replace(/(`+)([\s\S]*?)\1/g, (match) => {
+             placeHolders.push(match);
+             return `__CODE_${placeHolders.length - 1}__`;
+        });
+
+        // 1. Remove Pomodoro Counter
+        clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
+
+        // 2. Remove Tags (#tag, #tag/subtag)
+        clean = clean.replace(/#[\w\/-]+/g, '');
+
+        // 3. Remove Dataview fields
+        clean = clean.replace(/\[[^\]]+::.*?\]/g, '');
+
+        // 4. Aggressive Cut SKIPPED
+
+        // 5. Cleanup extra spaces
+        clean = clean.replace(/\s+/g, ' ').trim();
+
+        // 6. Restore Code Blocks
+        clean = clean.replace(/__CODE_(\d+)__/g, (match, idStr) => {
+            const id = parseInt(idStr);
+            return placeHolders[id] || match;
+        });
+
+        return clean;
+    }
+
     render() {
         this.renderCounter++;
         const currentRenderId = this.renderCounter;
@@ -1302,9 +1336,10 @@ export class PomodoroView extends ItemView {
             const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean' });
             MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, this);
 
-            // Full Text (Hover visible) - Raw text is fine for tooltips/hover, 
-            // but user might want to see the code there. Let's keep it text for now as it's the "raw" view.
-            const fullSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-full', text: task.text });
+            // Full Text (Hover visible) - Display clearer text with metadata
+            const hoverText = this.cleanTaskTextForHover(task.text);
+            const fullSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-full' });
+            MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, this);
 
 
             item.addEventListener('click', () => {
