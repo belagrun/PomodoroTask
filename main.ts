@@ -428,7 +428,7 @@ export class PomodoroView extends ItemView {
         settingsBtn.style.padding = '0';
         settingsBtn.style.display = 'flex'; // Fix vertical alignment
         settingsBtn.style.transform = 'scale(0.85)';
-        settingsBtn.style.marginRight = '12px'; // Explicit margin to separate from toggle
+        settingsBtn.style.marginRight = '6px'; // Explicit margin to separate from toggle
 
         settingsBtn.onclick = (e) => {
             e.stopPropagation();
@@ -436,6 +436,27 @@ export class PomodoroView extends ItemView {
             this.plugin.app.setting.open();
             // @ts-ignore
             this.plugin.app.setting.openTabById(this.plugin.manifest.id);
+        };
+
+        // Refresh Button
+        const refreshBtn = headerControls.createEl('button');
+        setIcon(refreshBtn, 'refresh-cw');
+        refreshBtn.addClass('clickable-icon');
+        refreshBtn.ariaLabel = 'Refresh';
+        refreshBtn.style.background = 'transparent';
+        refreshBtn.style.border = 'none';
+        refreshBtn.style.boxShadow = 'none';
+        refreshBtn.style.color = 'var(--text-on-accent)';
+        refreshBtn.style.opacity = '0.7';
+        refreshBtn.style.cursor = 'pointer';
+        refreshBtn.style.padding = '0';
+        refreshBtn.style.display = 'flex';
+        refreshBtn.style.transform = 'scale(0.85)';
+        refreshBtn.style.marginRight = '12px';
+
+        refreshBtn.onclick = (e) => {
+             e.stopPropagation();
+             this.render();
         };
 
         // Toggle indicator
