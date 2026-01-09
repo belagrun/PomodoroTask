@@ -933,6 +933,22 @@ export class PomodoroView extends ItemView {
                      }
                  };
 
+                 const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
+                 editBtn.onclick = async (e) => {
+                     e.stopPropagation();
+                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     if (freshLine !== -1) {
+                         new RenameModal(this.plugin.app, m.name, async (newName) => {
+                             if (newName && newName !== m.name) {
+                                await this.renameMarker(file!, freshLine, m.name, newName);
+                             }
+                         }).open();
+                     } else {
+                        new Notice("Marker not found.");
+                        this.renderMarkers(container);
+                     }
+                 };
+
                  const delBtn = item.createSpan({ cls: 'pomodoro-marker-delete', text: '✖' });
                  delBtn.onclick = async (e) => {
                      e.stopPropagation();
@@ -1013,6 +1029,23 @@ export class PomodoroView extends ItemView {
             lines.splice(lineIdx, 1);
             await this.plugin.app.vault.modify(file, lines.join('\n'));
             this.render();
+        }
+    }
+
+    async renameMarker(file: TFile, lineIdx: number, oldName: string, newName: string) {
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        if (lines.length > lineIdx) {
+            const markerRegex = new RegExp(`<!-- Marker: ${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} -->`);
+            if (markerRegex.test(lines[lineIdx])) {
+                 lines[lineIdx] = `<!-- Marker: ${newName} -->`;
+                 await this.plugin.app.vault.modify(file, lines.join('\n'));
+                 new Notice(`Renamed to ${newName}`);
+                 this.render();
+            } else {
+                 new Notice("Marker moved or changed, please refresh.");
+                 this.render();
+            }
         }
     }
 
@@ -2206,3 +2239,53 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
     }
 }
+
+class RenameModal extends Modal {
+    result: string;
+    onSubmit: (result: string) => void;
+
+    constructor(app: App, defaultName: string, onSubmit: (result: string) => void) {
+        super(app);
+        this.result = defaultName;
+        this.onSubmit = onSubmit;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl("h2", { text: "Rename Marker" });
+
+        const textSetting = new Setting(contentEl)
+            .setName("New Name")
+            .addText((text) => {
+                text
+                    .setValue(this.result)
+                    .onChange((value) => {
+                        this.result = value;
+                    });
+                // Focus the input
+                text.inputEl.focus();
+                text.inputEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        this.close();
+                        this.onSubmit(this.result);
+                    }
+                });
+            });
+
+        new Setting(contentEl)
+            .addButton((btn) =>
+                btn
+                    .setButtonText("Update")
+                    .setCta()
+                    .onClick(() => {
+                        this.close();
+                        this.onSubmit(this.result);
+                    }));
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
