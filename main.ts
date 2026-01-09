@@ -730,6 +730,18 @@ export class PomodoroView extends ItemView {
         }
     }
 
+    async onClose() {
+         if (this.floatingStats) {
+             this.floatingStats.remove();
+             this.floatingStats = null;
+         }
+         // Clean up global marker widget
+         const markerWidget = document.querySelector('.pomodoro-marker-widget');
+         if (markerWidget) {
+             markerWidget.remove();
+         }
+    }
+
     cleanTaskText(text: string): string {
         if (!text) return "";
         let clean = text;
@@ -843,20 +855,17 @@ export class PomodoroView extends ItemView {
     }
 
     async renderMarkers(container: Element) {
-        // Use contentEl instead of the scrollable container to stay floating
-        const parent = this.contentEl; 
-        
-        // Active file logic
-        let file: TFile | null = null;
-        if (this.plugin.timerService.state.taskFile) {
-            file = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile) as TFile;
-        } 
-        
-        // Fallback to active file if no task running or file not found
-        if (!file) {
-            file = this.plugin.app.workspace.getActiveFile();
-        }
+        // Change parent to body to make it global and fixed to viewport
+        const parent = document.body;
 
+        // Priority 1: Current Active File (so you can use markers on any note you are editing)
+        let file: TFile | null = this.plugin.app.workspace.getActiveFile();
+        
+        // Priority 2: If no active file (e.g. initial load or focusing sidebar), fallback to Timer Task File
+        if (!file && this.plugin.timerService.state.taskFile) {
+           file = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile) as TFile;
+        }
+        
         if (!file) {
             // Remove widget if no file context
             const existing = parent.querySelector('.pomodoro-marker-widget');
@@ -864,7 +873,7 @@ export class PomodoroView extends ItemView {
             return;
         }
 
-        // Try to find existing widget in contentEl
+        // Try to find existing widget in body
         let widget = parent.querySelector('.pomodoro-marker-widget') as HTMLElement;
         
         if (!widget) {
@@ -877,6 +886,9 @@ export class PomodoroView extends ItemView {
                 this.markerWidgetExpanded = !this.markerWidgetExpanded;
                 this.renderMarkers(container); // Re-render to update classes
             };
+            
+            // Add tooltip to explain it is draggable or fixed
+            header.title = "Page Markers";
 
             const icon = header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
             const title = header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
@@ -884,6 +896,7 @@ export class PomodoroView extends ItemView {
             // Content Area Structure
             widget.createDiv({ cls: 'pomodoro-marker-content' });
         }
+
 
         // Apply Expansion State
         if (this.markerWidgetExpanded) {
