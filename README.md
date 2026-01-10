@@ -100,7 +100,7 @@ A powerful Obsidian plugin that integrates the **Pomodoro Technique** directly w
 ### 4. Complete Your Session
 - When the timer ends, a tomato counter is automatically added:
   ```markdown
-  - [ ] Write project documentation #pomodoro 🍅:: 1
+  - [ ] 🍅:: 1 Write project documentation #pomodoro 
   ```
 
 ### 5. Set Goals (Optional)
