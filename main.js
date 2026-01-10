@@ -496,6 +496,9 @@ var PomodoroView = class extends import_obsidian.ItemView {
     // Floating Marker State
     this.markerWidgetExpanded = false;
     this.isRenderingMarkers = false;
+    // Track which markers are in "follow" mode (by name)
+    this.markerFollowMode = /* @__PURE__ */ new Set();
+    this.scrollHandler = null;
     this.rainbowColors = [
       "#FF6B6B",
       "#4ECDC4",
@@ -539,6 +542,14 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const markerWidget = document.querySelector(".pomodoro-marker-widget");
     if (markerWidget) {
       markerWidget.remove();
+    }
+    this.markerFollowMode.clear();
+    this.removeScrollHandler();
+  }
+  removeScrollHandler() {
+    if (this.scrollHandler) {
+      document.removeEventListener("scroll", this.scrollHandler, true);
+      this.scrollHandler = null;
     }
   }
   cleanTaskText(text) {
@@ -692,6 +703,9 @@ var PomodoroView = class extends import_obsidian.ItemView {
           e.stopPropagation();
           if (!hasMoved) {
             this.markerWidgetExpanded = !this.markerWidgetExpanded;
+            if (!this.markerWidgetExpanded) {
+              this.resetFollowModeOnCollapse();
+            }
             this.renderMarkers(container);
           }
         };
@@ -744,6 +758,22 @@ var PomodoroView = class extends import_obsidian.ItemView {
               this.renderMarkers(container);
             }
           };
+          const isFollowing = this.markerFollowMode.has(m.name);
+          const followBtn = item.createSpan({
+            cls: "pomodoro-marker-follow",
+            text: isFollowing ? "\u2192" : "\u{1F4CC}"
+          });
+          followBtn.title = isFollowing ? "Following window (click to pin)" : "Pinned (click to follow window)";
+          followBtn.onclick = async (e) => {
+            e.stopPropagation();
+            if (this.markerFollowMode.has(m.name)) {
+              this.markerFollowMode.delete(m.name);
+            } else {
+              this.markerFollowMode.add(m.name);
+            }
+            this.setupScrollHandler(file, container);
+            this.renderMarkers(container);
+          };
           const editBtn = item.createSpan({ cls: "pomodoro-marker-edit", text: "\u270E" });
           editBtn.onclick = async (e) => {
             e.stopPropagation();
@@ -768,6 +798,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
             }
           };
         });
+        this.setupScrollHandler(file, container);
         const addBtn = contentArea.createDiv({ cls: "pomodoro-marker-add-btn" });
         addBtn.innerHTML = "<span>\u2795</span> Add Marker here";
         addBtn.onclick = async (e) => {
@@ -902,6 +933,146 @@ var PomodoroView = class extends import_obsidian.ItemView {
         this.render();
       }
     }
+  }
+  // ---- MARKER FOLLOW MODE ----
+  setupScrollHandler(file, container) {
+    this.removeScrollHandler();
+    if (this.markerFollowMode.size === 0) {
+      return;
+    }
+    let isMovingMarker = false;
+    let scrollTimeout = null;
+    this.scrollHandler = () => {
+      if (scrollTimeout) {
+        window.clearTimeout(scrollTimeout);
+      }
+      scrollTimeout = window.setTimeout(async () => {
+        if (isMovingMarker)
+          return;
+        isMovingMarker = true;
+        try {
+          await this.moveFollowingMarkers(file, container);
+        } finally {
+          isMovingMarker = false;
+        }
+      }, 100);
+    };
+    document.addEventListener("scroll", this.scrollHandler, true);
+  }
+  async moveFollowingMarkers(file, container) {
+    if (this.markerFollowMode.size === 0)
+      return;
+    const widget = document.querySelector(".pomodoro-marker-widget");
+    if (!widget)
+      return;
+    const widgetHeader = widget.querySelector(".pomodoro-marker-header");
+    if (!widgetHeader)
+      return;
+    const headerRect = widgetHeader.getBoundingClientRect();
+    const targetY = headerRect.top + headerRect.height / 2;
+    let targetLeaf;
+    this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view instanceof import_obsidian.MarkdownView && leaf.view.file && leaf.view.file.path === file.path) {
+        targetLeaf = leaf;
+      }
+    });
+    if (!targetLeaf)
+      return;
+    const view = targetLeaf.view;
+    if (view.getMode() !== "source")
+      return;
+    const contentRect = view.contentEl.getBoundingClientRect();
+    const cmEditor = view.editor.cm;
+    if (!cmEditor)
+      return;
+    let detectedLine = -1;
+    const widgetEl = widget;
+    const originalDisplay = widgetEl.style.display;
+    widgetEl.style.display = "none";
+    try {
+      const xCandidates = [
+        contentRect.left + contentRect.width * 0.1 + 20,
+        contentRect.left + contentRect.width * 0.5,
+        contentRect.right - 50
+      ];
+      const yOffsets = [0, 8, -8, 16, -16];
+      outerLoop:
+        for (const dy of yOffsets) {
+          const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
+          for (const x of xCandidates) {
+            const pos = cmEditor.posAtCoords({ x, y: safeY });
+            if (pos !== null && pos !== void 0) {
+              const line = cmEditor.state.doc.lineAt(pos);
+              detectedLine = line.number - 1;
+              break outerLoop;
+            }
+          }
+        }
+    } finally {
+      widgetEl.style.display = originalDisplay;
+    }
+    if (detectedLine === -1)
+      return;
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split("\n");
+    detectedLine = this.findValidLineOutsideScriptBlock(lines, detectedLine);
+    for (const markerName of this.markerFollowMode) {
+      await this.moveMarkerToLine(file, markerName, detectedLine, lines);
+    }
+  }
+  findValidLineOutsideScriptBlock(lines, targetLine) {
+    const scriptBlockPatterns = [
+      /^```(?:dataview|dataviewjs|javascript|js|python|bash|sh|shell|css|yaml|json)/i,
+      /^```/
+    ];
+    let inScriptBlock = false;
+    let scriptBlockStart = -1;
+    let scriptBlockEnd = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!inScriptBlock && line.match(/^```/)) {
+        inScriptBlock = true;
+        scriptBlockStart = i;
+      } else if (inScriptBlock && line === "```") {
+        scriptBlockEnd = i;
+        if (targetLine >= scriptBlockStart && targetLine <= scriptBlockEnd) {
+          return Math.min(scriptBlockEnd + 1, lines.length - 1);
+        }
+        inScriptBlock = false;
+        scriptBlockStart = -1;
+      }
+    }
+    if (inScriptBlock && targetLine >= scriptBlockStart) {
+      return lines.length - 1;
+    }
+    return targetLine;
+  }
+  async moveMarkerToLine(file, markerName, targetLine, currentLines) {
+    const content = currentLines ? currentLines.join("\n") : await this.plugin.app.vault.read(file);
+    const lines = currentLines || content.split("\n");
+    const markerComment = `<!-- Marker: ${markerName} -->`;
+    const currentLine = lines.findIndex((line) => line.includes(markerComment));
+    if (currentLine === -1) {
+      this.markerFollowMode.delete(markerName);
+      return;
+    }
+    if (currentLine === targetLine || Math.abs(currentLine - targetLine) <= 1) {
+      return;
+    }
+    const markerText = lines[currentLine];
+    lines.splice(currentLine, 1);
+    let adjustedTarget = targetLine;
+    if (currentLine < targetLine) {
+      adjustedTarget = targetLine - 1;
+    }
+    adjustedTarget = Math.max(0, Math.min(adjustedTarget, lines.length));
+    lines.splice(adjustedTarget, 0, markerText);
+    await this.plugin.app.vault.modify(file, lines.join("\n"));
+  }
+  // Reset follow mode when widget is collapsed
+  resetFollowModeOnCollapse() {
+    this.markerFollowMode.clear();
+    this.removeScrollHandler();
   }
   updateTimer(container) {
     const { state } = this.plugin.timerService;

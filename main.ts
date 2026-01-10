@@ -703,6 +703,9 @@ export class PomodoroView extends ItemView {
     // Floating Marker State
     markerWidgetExpanded: boolean = false;
     private isRenderingMarkers: boolean = false;
+    // Track which markers are in "follow" mode (by name)
+    private markerFollowMode: Set<string> = new Set();
+    private scrollHandler: (() => void) | null = null;
     rainbowColors: string[] = [
         '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', 
         '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
@@ -744,6 +747,16 @@ export class PomodoroView extends ItemView {
          if (markerWidget) {
              markerWidget.remove();
          }
+         // Clear follow mode and scroll handler
+         this.markerFollowMode.clear();
+         this.removeScrollHandler();
+    }
+
+    private removeScrollHandler() {
+        if (this.scrollHandler) {
+            document.removeEventListener('scroll', this.scrollHandler, true);
+            this.scrollHandler = null;
+        }
     }
 
     cleanTaskText(text: string): string {
@@ -965,6 +978,10 @@ export class PomodoroView extends ItemView {
                 // Only toggle if we didn't drag significantly
                 if (!hasMoved) {
                     this.markerWidgetExpanded = !this.markerWidgetExpanded;
+                    // Reset follow mode when collapsing
+                    if (!this.markerWidgetExpanded) {
+                        this.resetFollowModeOnCollapse();
+                    }
                     this.renderMarkers(container); // Re-render to update classes
                 }
             };
@@ -1037,6 +1054,24 @@ export class PomodoroView extends ItemView {
                      }
                  };
 
+                 // Pin/Follow Toggle Button
+                 const isFollowing = this.markerFollowMode.has(m.name);
+                 const followBtn = item.createSpan({ 
+                     cls: 'pomodoro-marker-follow', 
+                     text: isFollowing ? '→' : '📌'
+                 });
+                 followBtn.title = isFollowing ? 'Following window (click to pin)' : 'Pinned (click to follow window)';
+                 followBtn.onclick = async (e) => {
+                     e.stopPropagation();
+                     if (this.markerFollowMode.has(m.name)) {
+                         this.markerFollowMode.delete(m.name);
+                     } else {
+                         this.markerFollowMode.add(m.name);
+                     }
+                     this.setupScrollHandler(file!, container);
+                     this.renderMarkers(container);
+                 };
+
                  const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
                  editBtn.onclick = async (e) => {
                      e.stopPropagation();
@@ -1063,6 +1098,9 @@ export class PomodoroView extends ItemView {
                      }
                  };
             });
+            
+            // Setup scroll handler for following markers
+            this.setupScrollHandler(file, container);
 
             // Add Button
             const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
@@ -1241,6 +1279,208 @@ export class PomodoroView extends ItemView {
                  this.render();
             }
         }
+    }
+
+    // ---- MARKER FOLLOW MODE ----
+    
+    private setupScrollHandler(file: TFile, container: Element) {
+        // Remove existing handler first
+        this.removeScrollHandler();
+        
+        // If no markers are in follow mode, don't set up handler
+        if (this.markerFollowMode.size === 0) {
+            return;
+        }
+        
+        let isMovingMarker = false;
+        let scrollTimeout: number | null = null;
+        
+        this.scrollHandler = () => {
+            // Debounce scroll events
+            if (scrollTimeout) {
+                window.clearTimeout(scrollTimeout);
+            }
+            scrollTimeout = window.setTimeout(async () => {
+                if (isMovingMarker) return;
+                isMovingMarker = true;
+                
+                try {
+                    await this.moveFollowingMarkers(file, container);
+                } finally {
+                    isMovingMarker = false;
+                }
+            }, 100); // Debounce 100ms
+        };
+        
+        // Capture scroll on any element (true for capture phase)
+        document.addEventListener('scroll', this.scrollHandler, true);
+    }
+    
+    private async moveFollowingMarkers(file: TFile, container: Element) {
+        if (this.markerFollowMode.size === 0) return;
+        
+        const widget = document.querySelector('.pomodoro-marker-widget');
+        if (!widget) return;
+        
+        const widgetHeader = widget.querySelector('.pomodoro-marker-header');
+        if (!widgetHeader) return;
+        
+        const headerRect = widgetHeader.getBoundingClientRect();
+        const targetY = headerRect.top + (headerRect.height / 2);
+        
+        // Find the correct leaf for this file
+        let targetLeaf: WorkspaceLeaf | undefined;
+        this.plugin.app.workspace.iterateAllLeaves(leaf => {
+            if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === file.path) {
+                targetLeaf = leaf;
+            }
+        });
+        
+        if (!targetLeaf) return;
+        
+        const view = targetLeaf.view as MarkdownView;
+        
+        // Ensure editing mode
+        if (view.getMode() !== 'source') return;
+        
+        const contentRect = view.contentEl.getBoundingClientRect();
+        // @ts-ignore - Access CodeMirror 6
+        const cmEditor = view.editor.cm;
+        if (!cmEditor) return;
+        
+        // Calculate the target line based on widget Y position
+        let detectedLine = -1;
+        
+        // Temporarily hide widget to avoid hit-testing issues
+        const widgetEl = widget as HTMLElement;
+        const originalDisplay = widgetEl.style.display;
+        widgetEl.style.display = 'none';
+        
+        try {
+            const xCandidates = [
+                contentRect.left + (contentRect.width * 0.1) + 20,
+                contentRect.left + (contentRect.width * 0.5),
+                contentRect.right - 50
+            ];
+            
+            const yOffsets = [0, 8, -8, 16, -16];
+            
+            outerLoop:
+            for (const dy of yOffsets) {
+                const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
+                
+                for (const x of xCandidates) {
+                    // @ts-ignore
+                    const pos = cmEditor.posAtCoords({ x: x, y: safeY });
+                    if (pos !== null && pos !== undefined) {
+                        // @ts-ignore
+                        const line = cmEditor.state.doc.lineAt(pos);
+                        detectedLine = line.number - 1; // 0-indexed
+                        break outerLoop;
+                    }
+                }
+            }
+        } finally {
+            widgetEl.style.display = originalDisplay;
+        }
+        
+        if (detectedLine === -1) return;
+        
+        // Read file content to check for script blocks
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        
+        // Adjust target line if it's inside a script block
+        detectedLine = this.findValidLineOutsideScriptBlock(lines, detectedLine);
+        
+        // Move each following marker
+        for (const markerName of this.markerFollowMode) {
+            await this.moveMarkerToLine(file, markerName, detectedLine, lines);
+        }
+    }
+    
+    private findValidLineOutsideScriptBlock(lines: string[], targetLine: number): number {
+        // Find if targetLine is inside a script block
+        const scriptBlockPatterns = [
+            /^```(?:dataview|dataviewjs|javascript|js|python|bash|sh|shell|css|yaml|json)/i,
+            /^```/
+        ];
+        
+        let inScriptBlock = false;
+        let scriptBlockStart = -1;
+        let scriptBlockEnd = -1;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (!inScriptBlock && line.match(/^```/)) {
+                inScriptBlock = true;
+                scriptBlockStart = i;
+            } else if (inScriptBlock && line === '```') {
+                scriptBlockEnd = i;
+                
+                // Check if our target is inside this block
+                if (targetLine >= scriptBlockStart && targetLine <= scriptBlockEnd) {
+                    // Jump to the first line after the script block
+                    return Math.min(scriptBlockEnd + 1, lines.length - 1);
+                }
+                
+                inScriptBlock = false;
+                scriptBlockStart = -1;
+            }
+        }
+        
+        // If we're still in a script block at EOF (unclosed), jump after it
+        if (inScriptBlock && targetLine >= scriptBlockStart) {
+            return lines.length - 1;
+        }
+        
+        return targetLine;
+    }
+    
+    private async moveMarkerToLine(file: TFile, markerName: string, targetLine: number, currentLines?: string[]) {
+        const content = currentLines ? currentLines.join('\n') : await this.plugin.app.vault.read(file);
+        const lines = currentLines || content.split('\n');
+        
+        // Find current position of the marker
+        const markerComment = `<!-- Marker: ${markerName} -->`;
+        const currentLine = lines.findIndex(line => line.includes(markerComment));
+        
+        if (currentLine === -1) {
+            // Marker no longer exists, remove from follow mode
+            this.markerFollowMode.delete(markerName);
+            return;
+        }
+        
+        // Don't move if already at target line (or close enough)
+        if (currentLine === targetLine || Math.abs(currentLine - targetLine) <= 1) {
+            return;
+        }
+        
+        // Remove marker from current position
+        const markerText = lines[currentLine];
+        lines.splice(currentLine, 1);
+        
+        // Adjust targetLine if we removed a line before it
+        let adjustedTarget = targetLine;
+        if (currentLine < targetLine) {
+            adjustedTarget = targetLine - 1;
+        }
+        
+        // Ensure target is within bounds
+        adjustedTarget = Math.max(0, Math.min(adjustedTarget, lines.length));
+        
+        // Insert at new position
+        lines.splice(adjustedTarget, 0, markerText);
+        
+        // Save file
+        await this.plugin.app.vault.modify(file, lines.join('\n'));
+    }
+    
+    // Reset follow mode when widget is collapsed
+    private resetFollowModeOnCollapse() {
+        this.markerFollowMode.clear();
+        this.removeScrollHandler();
     }
 
     updateTimer(container: Element) {
