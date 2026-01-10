@@ -493,6 +493,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     this.floatingStats = null;
     this.currentZoom = 1;
     this.renderCounter = 0;
+    this.markdownComponents = [];
     // Floating Marker State
     this.markerWidgetExpanded = false;
     this.isRenderingMarkers = false;
@@ -534,7 +535,15 @@ var PomodoroView = class extends import_obsidian.ItemView {
       this.floatingStats = null;
     }
   }
+  clearMarkdownComponents() {
+    this.markdownComponents.forEach((c) => {
+      this.removeChild(c);
+      c.unload();
+    });
+    this.markdownComponents = [];
+  }
   async onClose() {
+    this.clearMarkdownComponents();
     if (this.floatingStats) {
       this.floatingStats.remove();
       this.floatingStats = null;
@@ -564,11 +573,10 @@ var PomodoroView = class extends import_obsidian.ItemView {
     clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, "");
     clean = clean.replace(/#[\w\/-]+/g, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
-    const splitRegex = /[🔁🏁📅⏳🛫✅➕🔺⏫🔽]/;
-    const index = clean.search(splitRegex);
-    if (index !== -1) {
-      clean = clean.substring(0, index);
-    }
+    clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, "");
+    clean = clean.replace(/[🔺⏫🔽]/g, "");
+    clean = clean.replace(/🔁[^\s]*/g, "");
+    clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, "");
     clean = clean.replace(/\s+/g, " ").trim();
     clean = clean.replace(/__CODE_(\d+)__/g, (match, idStr) => {
       const id = parseInt(idStr);
@@ -613,6 +621,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
         this.floatingStats.remove();
         this.floatingStats = null;
       }
+      this.clearMarkdownComponents();
       container.empty();
       container.addClass("pomodoro-view-container");
       if (state.state !== "IDLE") {
@@ -1207,7 +1216,34 @@ var PomodoroView = class extends import_obsidian.ItemView {
     textContainer.style.alignItems = "center";
     const cleanedText = this.cleanTaskText(state.taskText);
     const textDiv = textContainer.createDiv({ cls: "pomodoro-active-task-text" });
-    import_obsidian.MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, this);
+    textDiv.style.display = "none";
+    const textComp = new import_obsidian.Component();
+    this.addChild(textComp);
+    this.markdownComponents.push(textComp);
+    const hasDataviewScript = /`\$=/.test(cleanedText);
+    import_obsidian.MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, textComp).then(() => {
+      if (!hasDataviewScript) {
+        textDiv.style.display = "";
+        return;
+      }
+      const observer = new MutationObserver(() => {
+        const text = textDiv.textContent || "";
+        const stillHasRawCode = text.includes("$=") || text.includes("dv.");
+        if (!stillHasRawCode) {
+          textDiv.style.display = "";
+          observer.disconnect();
+        }
+      });
+      observer.observe(textDiv, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      setTimeout(() => {
+        textDiv.style.display = "";
+        observer.disconnect();
+      }, 3e3);
+    });
     const linkBtn = textContainer.createEl("button", { cls: "pomodoro-link-btn", text: "\u{1F517}" });
     linkBtn.classList.add("clickable-icon");
     linkBtn.style.background = "none";
@@ -1448,40 +1484,64 @@ var PomodoroView = class extends import_obsidian.ItemView {
       }
       const textContainer = item.createDiv({ cls: "pomodoro-task-text-container" });
       const cleanSpan = textContainer.createDiv({ cls: "pomodoro-task-text-clean" });
-      const isDataview = /\$=|::|`/.test(task.text);
-      if (isDataview) {
-        const loader = item.createDiv({ cls: "pomodoro-loader-overlay" });
-        loader.createDiv({ cls: "pomodoro-loader-spinner" });
-        cleanSpan.style.display = "none";
-        const observer = new MutationObserver((mutations) => {
-          const currentText = cleanSpan.innerText || "";
-          const hasRawDataview = /\$=/.test(currentText);
-          const hasRawInline = /::/.test(currentText);
-          if (cleanSpan.childElementCount > 0 && !hasRawDataview) {
+      cleanSpan.style.display = "none";
+      const cleanComp = new import_obsidian.Component();
+      this.addChild(cleanComp);
+      this.markdownComponents.push(cleanComp);
+      const hasDataviewScript = /`\$=/.test(cleanText);
+      import_obsidian.MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, cleanComp).then(() => {
+        if (!hasDataviewScript) {
+          cleanSpan.style.display = "";
+          return;
+        }
+        const observer = new MutationObserver(() => {
+          const text = cleanSpan.textContent || "";
+          const stillHasRawCode = text.includes("$=") || text.includes("dv.");
+          if (!stillHasRawCode) {
             cleanSpan.style.display = "";
-            cleanSpan.animate([
-              { opacity: 0 },
-              { opacity: 1 }
-            ], { duration: 200 });
-            if (loader.parentElement)
-              loader.remove();
             observer.disconnect();
           }
         });
-        observer.observe(cleanSpan, { childList: true, subtree: true, characterData: true });
+        observer.observe(cleanSpan, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
         setTimeout(() => {
-          if (cleanSpan.style.display === "none") {
-            cleanSpan.style.display = "";
-            if (loader.parentElement)
-              loader.remove();
-            observer.disconnect();
-          }
-        }, 4e3);
-      }
-      import_obsidian.MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, this);
+          cleanSpan.style.display = "";
+          observer.disconnect();
+        }, 3e3);
+      });
       const hoverText = this.cleanTaskTextForHover(task.text);
       const fullSpan = textContainer.createDiv({ cls: "pomodoro-task-text-full" });
-      import_obsidian.MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, this);
+      fullSpan.style.display = "none";
+      const hoverComp = new import_obsidian.Component();
+      this.addChild(hoverComp);
+      this.markdownComponents.push(hoverComp);
+      const hoverHasDataview = /`\$=/.test(hoverText);
+      import_obsidian.MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, hoverComp).then(() => {
+        if (!hoverHasDataview) {
+          fullSpan.style.display = "";
+          return;
+        }
+        const observer = new MutationObserver(() => {
+          const text = fullSpan.textContent || "";
+          const stillHasRawCode = text.includes("$=") || text.includes("dv.");
+          if (!stillHasRawCode) {
+            fullSpan.style.display = "";
+            observer.disconnect();
+          }
+        });
+        observer.observe(fullSpan, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+        setTimeout(() => {
+          fullSpan.style.display = "";
+          observer.disconnect();
+        }, 3e3);
+      });
       item.addEventListener("click", () => {
         this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, "WORK");
       });
@@ -1605,7 +1665,34 @@ var PomodoroView = class extends import_obsidian.ItemView {
         await this.toggleSubtask(file, task.line, task.text, checkbox.checked);
       };
       const textDiv = row.createDiv({ cls: "pomodoro-subtask-text" });
-      import_obsidian.MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, this);
+      textDiv.style.display = "none";
+      const textComp = new import_obsidian.Component();
+      this.addChild(textComp);
+      this.markdownComponents.push(textComp);
+      const hasDataviewScript = /`\$=/.test(task.text);
+      import_obsidian.MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, textComp).then(() => {
+        if (!hasDataviewScript) {
+          textDiv.style.display = "";
+          return;
+        }
+        const observer = new MutationObserver(() => {
+          const text = textDiv.textContent || "";
+          const stillHasRawCode = text.includes("$=") || text.includes("dv.");
+          if (!stillHasRawCode) {
+            textDiv.style.display = "";
+            observer.disconnect();
+          }
+        });
+        observer.observe(textDiv, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+        setTimeout(() => {
+          textDiv.style.display = "";
+          observer.disconnect();
+        }, 3e3);
+      });
       if (task.completed) {
         textDiv.style.textDecoration = "line-through";
         textDiv.style.opacity = "0.6";

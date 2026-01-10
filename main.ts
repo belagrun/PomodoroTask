@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer, Component } from 'obsidian';
 
 // --- DATA MODELS ---
 
@@ -699,6 +699,7 @@ export class PomodoroView extends ItemView {
     floatingStats: HTMLElement | null = null;
     currentZoom: number = 1.0;
     private renderCounter: number = 0;
+    private markdownComponents: Component[] = [];
     
     // Floating Marker State
     markerWidgetExpanded: boolean = false;
@@ -737,7 +738,16 @@ export class PomodoroView extends ItemView {
         }
     }
 
+    private clearMarkdownComponents() {
+        this.markdownComponents.forEach(c => {
+            this.removeChild(c);
+            c.unload();
+        });
+        this.markdownComponents = [];
+    }
+
     async onClose() {
+         this.clearMarkdownComponents();
          if (this.floatingStats) {
              this.floatingStats.remove();
              this.floatingStats = null;
@@ -763,7 +773,7 @@ export class PomodoroView extends ItemView {
         if (!text) return "";
         let clean = text;
 
-        // Mask Code Blocks to support Dataview scripts or inline code that contains removal symbols
+        // Mask Code Blocks (including Dataview) to protect them during cleanup
         const placeHolders: string[] = [];
         clean = clean.replace(/(`+)([\s\S]*?)\1/g, (match) => {
             placeHolders.push(match);
@@ -779,14 +789,17 @@ export class PomodoroView extends ItemView {
         // 3. Remove Dataview fields
         clean = clean.replace(/\[[^\]]+::.*?\]/g, '');
 
-        // 4. Aggressive Cut: Remove everything including and to the right of any Obsidian Tasks symbol
-        // Symbols: 🔁 (recurrence), 🏁 (flag), 📅 (due), ⏳ (scheduled), 🛫 (start), ✅ (done), ➕ (created)
+        // 4. Aggressive Cut: Remove common Obsidian Tasks metadata (preserving logic)
+        // Replaces metadata patterns with empty string instead of cutting the tail
+        // Dates (YYYY-MM-DD): 📅 2023-01-01, ⏳ 2023-01-01, etc.
+        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, '');
         // Priorities: 🔺, ⏫, 🔽
-        const splitRegex = /[🔁🏁📅⏳🛫✅➕🔺⏫🔽]/;
-        const index = clean.search(splitRegex);
-        if (index !== -1) {
-            clean = clean.substring(0, index);
-        }
+        clean = clean.replace(/[🔺⏫🔽]/g, '');
+        // Recurrence: 🔁 every ... (simplified)
+        clean = clean.replace(/🔁[^\s]*/g, '');
+        
+        // Remove standalone symbols if left over
+        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, '');
 
         // 5. Cleanup extra spaces
         clean = clean.replace(/\s+/g, ' ').trim();
@@ -804,7 +817,7 @@ export class PomodoroView extends ItemView {
         if (!text) return "";
         let clean = text;
 
-        // Mask Code Blocks
+        // Mask Code Blocks (including Dataview) to protect them during cleanup
         const placeHolders: string[] = [];
         clean = clean.replace(/(`+)([\s\S]*?)\1/g, (match) => {
             placeHolders.push(match);
@@ -857,6 +870,8 @@ export class PomodoroView extends ItemView {
                 this.floatingStats.remove();
                 this.floatingStats = null;
             }
+
+            this.clearMarkdownComponents();
 
             container.empty();
             container.addClass('pomodoro-view-container');
@@ -1665,9 +1680,46 @@ export class PomodoroView extends ItemView {
         // Clean task text
         const cleanedText = this.cleanTaskText(state.taskText);
 
-        // Render Markdown/Script
+        // Render Markdown/Script - Hide until Dataview finishes processing
         const textDiv = textContainer.createDiv({ cls: 'pomodoro-active-task-text' });
-        MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, this);
+        textDiv.style.display = 'none';
+        
+        const textComp = new Component();
+        this.addChild(textComp);
+        this.markdownComponents.push(textComp);
+        
+        // Check if text contains Dataview scripts
+        const hasDataviewScript = /`\$=/.test(cleanedText);
+        
+        MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, textComp).then(() => {
+            if (!hasDataviewScript) {
+                textDiv.style.display = '';
+                return;
+            }
+            
+            // Use MutationObserver to detect when Dataview finishes
+            const observer = new MutationObserver(() => {
+                const text = textDiv.textContent || '';
+                const stillHasRawCode = text.includes('$=') || text.includes('dv.');
+                
+                if (!stillHasRawCode) {
+                    textDiv.style.display = '';
+                    observer.disconnect();
+                }
+            });
+            
+            observer.observe(textDiv, { 
+                childList: true, 
+                subtree: true, 
+                characterData: true 
+            });
+            
+            // Fallback timeout
+            setTimeout(() => {
+                textDiv.style.display = '';
+                observer.disconnect();
+            }, 3000);
+        });
 
         // Link Icon
         const linkBtn = textContainer.createEl('button', { cls: 'pomodoro-link-btn', text: '🔗' });
@@ -1992,61 +2044,88 @@ export class PomodoroView extends ItemView {
             const textContainer = item.createDiv({ cls: 'pomodoro-task-text-container' });
 
             // Clean Text (Default visible) - Use Markdown Render
+            // Hide completely until Dataview finishes processing
             const cleanSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-clean' });
+            cleanSpan.style.display = 'none';
 
-            // Detect Dataview or heavy script usage that causes delay/flash
-            const isDataview = /\$=|::|`/.test(task.text);
-
-            if (isDataview) {
-                // Add loading spinner
-                const loader = item.createDiv({ cls: 'pomodoro-loader-overlay' });
-                loader.createDiv({ cls: 'pomodoro-loader-spinner' });
-
-                // Hide content initially to prevent flash of raw code
-                cleanSpan.style.display = 'none';
-
-                // Use MutationObserver to detect DOM changes (script rendering)
-                const observer = new MutationObserver((mutations) => {
-                    const currentText = cleanSpan.innerText || "";
-
-                    // Stronger check: If it contains "$=" or "::" followed by letters, it's likely still raw code.
-                    const hasRawDataview = /\$=/.test(currentText);
-                    const hasRawInline = /::/.test(currentText); // Might be legitimate text, but often dataview key::value
-
-                    // We consider it "ready" when:
-                    // 1. We have content (children > 0)
-                    // 2. The obvious raw markers ($=) are gone.
-                    if (cleanSpan.childElementCount > 0 && !hasRawDataview) {
+            const cleanComp = new Component();
+            this.addChild(cleanComp);
+            this.markdownComponents.push(cleanComp);
+            
+            // Check if text contains Dataview scripts
+            const hasDataviewScript = /`\$=/.test(cleanText);
+            
+            MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, cleanComp).then(() => {
+                if (!hasDataviewScript) {
+                    // No Dataview, show immediately
+                    cleanSpan.style.display = '';
+                    return;
+                }
+                
+                // Use MutationObserver to detect when Dataview finishes
+                // Dataview replaces <code> elements with rendered content
+                const observer = new MutationObserver(() => {
+                    // Check if raw code is still visible
+                    const text = cleanSpan.textContent || '';
+                    const stillHasRawCode = text.includes('$=') || text.includes('dv.');
+                    
+                    if (!stillHasRawCode) {
                         cleanSpan.style.display = '';
-                        cleanSpan.animate([
-                            { opacity: 0 },
-                            { opacity: 1 }
-                        ], { duration: 200 });
-
-                        if (loader.parentElement) loader.remove();
                         observer.disconnect();
                     }
                 });
-
-                observer.observe(cleanSpan, { childList: true, subtree: true, characterData: true });
-
-                // Fallback timeout extended to 4s for slower Dataview queries
+                
+                observer.observe(cleanSpan, { 
+                    childList: true, 
+                    subtree: true, 
+                    characterData: true 
+                });
+                
+                // Fallback timeout - show after 3 seconds regardless
                 setTimeout(() => {
-                    if (cleanSpan.style.display === 'none') {
-                        cleanSpan.style.display = '';
-                        if (loader.parentElement) loader.remove();
-                        observer.disconnect();
-                    }
-                }, 4000);
-            }
-
-            MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, this);
+                    cleanSpan.style.display = '';
+                    observer.disconnect();
+                }, 3000);
+            });
 
             // Full Text (Hover visible) - Display clearer text with metadata
             const hoverText = this.cleanTaskTextForHover(task.text);
             const fullSpan = textContainer.createDiv({ cls: 'pomodoro-task-text-full' });
-            MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, this);
+            fullSpan.style.display = 'none';
 
+            const hoverComp = new Component();
+            this.addChild(hoverComp);
+            this.markdownComponents.push(hoverComp);
+            
+            const hoverHasDataview = /`\$=/.test(hoverText);
+            
+            MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, hoverComp).then(() => {
+                if (!hoverHasDataview) {
+                    fullSpan.style.display = '';
+                    return;
+                }
+                
+                const observer = new MutationObserver(() => {
+                    const text = fullSpan.textContent || '';
+                    const stillHasRawCode = text.includes('$=') || text.includes('dv.');
+                    
+                    if (!stillHasRawCode) {
+                        fullSpan.style.display = '';
+                        observer.disconnect();
+                    }
+                });
+                
+                observer.observe(fullSpan, { 
+                    childList: true, 
+                    subtree: true, 
+                    characterData: true 
+                });
+                
+                setTimeout(() => {
+                    fullSpan.style.display = '';
+                    observer.disconnect();
+                }, 3000);
+            });
 
             item.addEventListener('click', () => {
                 this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
@@ -2233,7 +2312,44 @@ export class PomodoroView extends ItemView {
             };
 
             const textDiv = row.createDiv({ cls: 'pomodoro-subtask-text' });
-            MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, this);
+            textDiv.style.display = 'none';
+            
+            const textComp = new Component();
+            this.addChild(textComp);
+            this.markdownComponents.push(textComp);
+            
+            // Check if text contains Dataview scripts
+            const hasDataviewScript = /`\$=/.test(task.text);
+            
+            MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, textComp).then(() => {
+                if (!hasDataviewScript) {
+                    textDiv.style.display = '';
+                    return;
+                }
+                
+                // Use MutationObserver to detect when Dataview finishes
+                const observer = new MutationObserver(() => {
+                    const text = textDiv.textContent || '';
+                    const stillHasRawCode = text.includes('$=') || text.includes('dv.');
+                    
+                    if (!stillHasRawCode) {
+                        textDiv.style.display = '';
+                        observer.disconnect();
+                    }
+                });
+                
+                observer.observe(textDiv, { 
+                    childList: true, 
+                    subtree: true, 
+                    characterData: true 
+                });
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    textDiv.style.display = '';
+                    observer.disconnect();
+                }, 3000);
+            });
 
             if (task.completed) {
                 textDiv.style.textDecoration = 'line-through';
