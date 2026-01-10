@@ -16,7 +16,7 @@ A powerful Obsidian plugin that integrates the **Pomodoro Technique** directly w
 - Supports both **Work** and **Break** sessions
 
 ### 🍅 Automatic Progress Tracking
-- Logs completed Pomodoro cycles directly into your task line: `[🍅:: 3/5]`
+- Logs completed Pomodoro cycles directly into your task line: `🍅:: 3/5`
 - Set goals for tasks and automatically mark them complete when reached
 - Visual progress indicators in the task list
 
@@ -100,13 +100,13 @@ A powerful Obsidian plugin that integrates the **Pomodoro Technique** directly w
 ### 4. Complete Your Session
 - When the timer ends, a tomato counter is automatically added:
   ```markdown
-  - [ ] Write project documentation #pomodoro [🍅:: 1]
+  - [ ] Write project documentation #pomodoro 🍅:: 1
   ```
 
 ### 5. Set Goals (Optional)
 - Click on `--` next to the 🍅 icon in the timer view
 - Enter a goal number (e.g., `4`)
-- Your task will show progress: `[🍅:: 2/4]`
+- Your task will show progress: `🍅:: 2/4`
 - When the goal is reached, the task is automatically marked complete ✅
 
 ---
@@ -119,8 +119,8 @@ The plugin recognizes **unchecked Markdown tasks** containing your configured ta
 
 ```markdown
 - [ ] My task #pomodoro                    ← Basic task
-- [ ] My task #pomodoro [🍅:: 3]           ← With cycle count
-- [ ] My task #pomodoro [🍅:: 2/5]         ← With goal
+- [ ] My task #pomodoro 🍅:: 3             ← With cycle count
+- [ ] My task #pomodoro 🍅:: 2/5           ← With goal
 * [ ] Also works with asterisk #pomodoro   ← Alternative format
 ```
 
@@ -220,9 +220,9 @@ When a session is active:
 
 ## 📊 How Cycle Logging Works
 
-1. **First completion**: Adds `[🍅:: 1]` to the task line
-2. **Subsequent completions**: Increments the counter `[🍅:: 2]`, `[🍅:: 3]`, etc.
-3. **With goals**: Shows progress as `[🍅:: 2/4]`
+1. **First completion**: Adds `🍅:: 1` to the task line
+2. **Subsequent completions**: Increments the counter `🍅:: 2`, `🍅:: 3`, etc.
+3. **With goals**: Shows progress as `🍅:: 2/4`
 4. **Goal reached**: Task is automatically checked `[x]`
 
 The plugin reads the **latest file content** before logging to prevent overwriting any changes you made during the session.
@@ -284,7 +284,7 @@ If you find this plugin useful, consider:
 ### v1.0.0
 - Initial release
 - Task-integrated Pomodoro timer
-- Automatic cycle logging with `[🍅:: N]` format
+- Automatic cycle logging with `🍅:: N` format
 - Goal setting and auto-completion
 - Subtask management
 - Document markers with floating widget

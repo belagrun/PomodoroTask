@@ -386,7 +386,7 @@ var TimerService = class {
       if (lineIdx < lines.length) {
         let line = lines[lineIdx];
         if (line.includes(this.state.taskText.substring(0, 5))) {
-          const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+          const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
           const match = line.match(tomatoRegex);
           let newLine = line;
           if (match) {
@@ -394,12 +394,11 @@ var TimerService = class {
             const goalStr = match[2];
             let goal = null;
             const newCount = currentCount + 1;
-            let newLabel = `[\u{1F345}:: ${newCount}`;
+            let newLabel = `\u{1F345}:: ${newCount}`;
             if (goalStr) {
               newLabel += `/${goalStr}`;
               goal = parseInt(goalStr);
             }
-            newLabel += `]`;
             newLine = line.replace(match[0], newLabel);
             if (goal !== null && newCount >= goal) {
               const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
@@ -408,7 +407,7 @@ var TimerService = class {
               }
             }
           } else {
-            newLine = `${line} [\u{1F345}:: 1]`;
+            newLine = `${line} \u{1F345}:: 1`;
           }
           lines[lineIdx] = newLine;
           await this.plugin.app.vault.modify(file, lines.join("\n"));
@@ -570,7 +569,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       placeHolders.push(match);
       return `__CODE_${placeHolders.length - 1}__`;
     });
-    clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, "");
+    clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, "");
     clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
     clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]+/gi, "");
@@ -594,7 +593,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       placeHolders.push(match);
       return `__CODE_${placeHolders.length - 1}__`;
     });
-    clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, "");
+    clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, "");
     clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
     clean = clean.replace(/\s+/g, " ").trim();
@@ -1316,7 +1315,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       return;
     }
     const line = lines[lineIdx];
-    const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
     const match = line.match(tomatoRegex);
     if (match) {
       const currentCount = parseInt(match[1]);
@@ -1372,22 +1371,22 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const lines = content.split("\n");
     if (lineIdx < lines.length) {
       let line = lines[lineIdx];
-      const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+      const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
       if (!tomatoRegex.test(line)) {
         const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
         const match = line.match(checkboxRegex);
         if (match) {
           const prefix = match[1];
           const rest = line.substring(prefix.length);
-          lines[lineIdx] = `${prefix}[\u{1F345}:: 0/${goal}] ${rest}`;
+          lines[lineIdx] = `${prefix}\u{1F345}:: 0/${goal} ${rest}`;
         } else {
           const indentMatch = line.match(/^(\s*)(.*)/);
           if (indentMatch) {
             const indent = indentMatch[1];
             const text = indentMatch[2];
-            lines[lineIdx] = `${indent}[\u{1F345}:: 0/${goal}] ${text}`;
+            lines[lineIdx] = `${indent}\u{1F345}:: 0/${goal} ${text}`;
           } else {
-            lines[lineIdx] = `[\u{1F345}:: 0/${goal}] ${line}`;
+            lines[lineIdx] = `\u{1F345}:: 0/${goal} ${line}`;
           }
         }
         await this.plugin.app.vault.modify(file, lines.join("\n"));
@@ -1467,7 +1466,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const list = container.createDiv({ cls: "pomodoro-task-list" });
     tasks.forEach((task) => {
       const item = list.createDiv({ cls: "pomodoro-task-item" });
-      const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+      const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
       const match = task.text.match(tomatoRegex);
       let tomatoCount = "";
       if (match) {

@@ -526,8 +526,8 @@ class TimerService {
                 // Check if line looks like our task (basic check)
                 if (line.includes(this.state.taskText.substring(0, 5))) {
 
-                    // Regex to find [🍅:: N] or [🍅:: N/M]
-                    const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+                    // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
+                    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
                     const match = line.match(tomatoRegex);
 
                     let newLine = line;
@@ -539,15 +539,14 @@ class TimerService {
                         let goal: number | null = null;
 
                         const newCount = currentCount + 1;
-                        let newLabel = `[🍅:: ${newCount}`;
+                        let newLabel = `🍅:: ${newCount}`;
 
                         if (goalStr) {
                             newLabel += `/${goalStr}`;
                             goal = parseInt(goalStr);
                         }
-                        newLabel += `]`;
-
-                        // Replace the old tag with the new one
+                        
+                        // Replace the old tag with the new one (removing brackets if present)
                         newLine = line.replace(match[0], newLabel);
 
                         // Completion Logic: If goal met, mark task as checked
@@ -560,8 +559,8 @@ class TimerService {
                         }
 
                     } else {
-                        // No counter found, start a new one
-                        newLine = `${line} [🍅:: 1]`;
+                        // No counter found, start a new one (without brackets)
+                        newLine = `${line} 🍅:: 1`;
                     }
 
                     // Save changes
@@ -780,8 +779,8 @@ export class PomodoroView extends ItemView {
             return `__CODE_${placeHolders.length - 1}__`;
         });
 
-        // 1. Remove Pomodoro Counter
-        clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
+        // 1. Remove Pomodoro Counter (bracketed or unbracketed)
+        clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, '');
 
         // 2. Remove Tags (#tag, #tag/subtag) - includes Unicode letters for accented chars
         clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, '');
@@ -831,8 +830,8 @@ export class PomodoroView extends ItemView {
             return `__CODE_${placeHolders.length - 1}__`;
         });
 
-        // 1. Remove Pomodoro Counter
-        clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
+        // 1. Remove Pomodoro Counter (bracketed or unbracketed)
+        clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, '');
 
         // 2. Remove Tags (#tag, #tag/subtag) - includes Unicode letters for accented chars
         clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, '');
@@ -1826,7 +1825,7 @@ export class PomodoroView extends ItemView {
         }
 
         const line = lines[lineIdx];
-        const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+        const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
         const match = line.match(tomatoRegex);
 
         if (match) {
@@ -1894,7 +1893,7 @@ export class PomodoroView extends ItemView {
         const lines = content.split('\n');
         if (lineIdx < lines.length) {
             let line = lines[lineIdx];
-            const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+            const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
 
             if (!tomatoRegex.test(line)) {
                 // Determine placement
@@ -1906,7 +1905,7 @@ export class PomodoroView extends ItemView {
                     // Start of task (e.g. "  - [ ] ")
                     const prefix = match[1];
                     const rest = line.substring(prefix.length);
-                    lines[lineIdx] = `${prefix}[🍅:: 0/${goal}] ${rest}`;
+                    lines[lineIdx] = `${prefix}🍅:: 0/${goal} ${rest}`;
                 } else {
                     // No checkbox, but maybe indentation?
                     // Just append to start, respecting indentation
@@ -1914,9 +1913,9 @@ export class PomodoroView extends ItemView {
                     if (indentMatch) {
                         const indent = indentMatch[1];
                         const text = indentMatch[2];
-                        lines[lineIdx] = `${indent}[🍅:: 0/${goal}] ${text}`;
+                        lines[lineIdx] = `${indent}🍅:: 0/${goal} ${text}`;
                     } else {
-                        lines[lineIdx] = `[🍅:: 0/${goal}] ${line}`;
+                        lines[lineIdx] = `🍅:: 0/${goal} ${line}`;
                     }
                 }
 
@@ -2022,7 +2021,7 @@ export class PomodoroView extends ItemView {
             const item = list.createDiv({ cls: 'pomodoro-task-item' });
 
             // Extract Pomodoro Info
-            const tomatoRegex = /\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/;
+            const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
             const match = task.text.match(tomatoRegex);
             let tomatoCount = '';
             if (match) {
