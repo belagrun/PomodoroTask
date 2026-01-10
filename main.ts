@@ -783,20 +783,27 @@ export class PomodoroView extends ItemView {
         // 1. Remove Pomodoro Counter
         clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
 
-        // 2. Remove Tags (#tag, #tag/subtag)
-        clean = clean.replace(/#[\w\/-]+/g, '');
+        // 2. Remove Tags (#tag, #tag/subtag) - includes Unicode letters for accented chars
+        clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, '');
 
         // 3. Remove Dataview fields
         clean = clean.replace(/\[[^\]]+::.*?\]/g, '');
 
         // 4. Aggressive Cut: Remove common Obsidian Tasks metadata (preserving logic)
         // Replaces metadata patterns with empty string instead of cutting the tail
+        
+        // Recurrence: 🔁 every ... when done (must be before date removal)
+        // Matches: "🔁 every day", "🔁 every week", "🔁 every day when done", etc.
+        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]+/gi, '');
+        
+        // On completion action: 🏁 delete
+        clean = clean.replace(/🏁\s*delete/gi, '');
+        
         // Dates (YYYY-MM-DD): 📅 2023-01-01, ⏳ 2023-01-01, etc.
-        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, '');
+        clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, '');
+        
         // Priorities: 🔺, ⏫, 🔽
         clean = clean.replace(/[🔺⏫🔽]/g, '');
-        // Recurrence: 🔁 every ... (simplified)
-        clean = clean.replace(/🔁[^\s]*/g, '');
         
         // Remove standalone symbols if left over
         clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, '');
@@ -827,8 +834,8 @@ export class PomodoroView extends ItemView {
         // 1. Remove Pomodoro Counter
         clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, '');
 
-        // 2. Remove Tags (#tag, #tag/subtag)
-        clean = clean.replace(/#[\w\/-]+/g, '');
+        // 2. Remove Tags (#tag, #tag/subtag) - includes Unicode letters for accented chars
+        clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, '');
 
         // 3. Remove Dataview fields
         clean = clean.replace(/\[[^\]]+::.*?\]/g, '');

@@ -571,11 +571,12 @@ var PomodoroView = class extends import_obsidian.ItemView {
       return `__CODE_${placeHolders.length - 1}__`;
     });
     clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, "");
-    clean = clean.replace(/#[\w\/-]+/g, "");
+    clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
-    clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, "");
+    clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]+/gi, "");
+    clean = clean.replace(/🏁\s*delete/gi, "");
+    clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, "");
     clean = clean.replace(/[🔺⏫🔽]/g, "");
-    clean = clean.replace(/🔁[^\s]*/g, "");
     clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, "");
     clean = clean.replace(/\s+/g, " ").trim();
     clean = clean.replace(/__CODE_(\d+)__/g, (match, idStr) => {
@@ -594,7 +595,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       return `__CODE_${placeHolders.length - 1}__`;
     });
     clean = clean.replace(/\[🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]/g, "");
-    clean = clean.replace(/#[\w\/-]+/g, "");
+    clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
     clean = clean.replace(/\s+/g, " ").trim();
     clean = clean.replace(/__CODE_(\d+)__/g, (match, idStr) => {
