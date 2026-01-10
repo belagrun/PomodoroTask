@@ -83,6 +83,8 @@ A powerful Obsidian plugin that integrates the **Pomodoro Technique** directly w
 
 ## 🚀 Quick Start
 
+![2026-01-10_13-18-27.gif](2026-01-10_13-18-27.gif)
+
 ### 1. Create a Task with the Pomodoro Tag
 
 ```markdown
