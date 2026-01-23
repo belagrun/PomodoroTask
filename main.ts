@@ -727,7 +727,7 @@ export class PomodoroView extends ItemView {
                 const delta = evt.deltaY > 0 ? -0.1 : 0.1;
                 this.currentZoom = Math.min(Math.max(0.5, this.currentZoom + delta), 2.5);
                 // @ts-ignore
-                this.contentEl.style.zoom = this.currentZoom;
+                setCssProps(this.contentEl, { zoom: this.currentZoom });
             }
         }, { passive: false });
 
@@ -936,10 +936,12 @@ export class PomodoroView extends ItemView {
             // Restore position if valid
             const savedPos = this.plugin.settings.markerWidgetPos;
             if (savedPos) {
-                 widget.style.right = 'auto';
-                 widget.style.bottom = 'auto';
-                 widget.style.left = savedPos.x + 'px';
-                 widget.style.top = savedPos.y + 'px';
+                 setCssProps(widget, {
+                     right: 'auto',
+                     bottom: 'auto',
+                     left: savedPos.x + 'px',
+                     top: savedPos.y + 'px'
+                 });
             }
 
             // Header
@@ -963,10 +965,12 @@ export class PomodoroView extends ItemView {
                 initialTop = rect.top;
                 
                 // Clear default styles if set via CSS (right/bottom) to allow absolute positioning via left/top
-                widget.style.right = 'auto';
-                widget.style.bottom = 'auto';
-                widget.style.left = initialLeft + 'px';
-                widget.style.top = initialTop + 'px';
+                setCssProps(widget, {
+                    right: 'auto',
+                    bottom: 'auto',
+                    left: initialLeft + 'px',
+                    top: initialTop + 'px'
+                });
                 
                 // Add temp global listeners
                 document.addEventListener('mousemove', onMouseMove);
@@ -981,8 +985,10 @@ export class PomodoroView extends ItemView {
                 
                 if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
 
-                widget.style.left = (initialLeft + dx) + 'px';
-                widget.style.top = (initialTop + dy) + 'px';
+                setCssProps(widget, {
+                    left: (initialLeft + dx) + 'px',
+                    top: (initialTop + dy) + 'px'
+                });
             };
 
             const onMouseUp = () => {
@@ -1012,7 +1018,7 @@ export class PomodoroView extends ItemView {
             
             // Add tooltip to explain it is draggable or fixed
             header.title = "Drag to move • click to toggle";
-            header.style.cursor = "move"; // Indicate draggable
+            setCssProps(header, { cursor: "move" }); // Indicate draggable
 
             const icon = header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
             const title = header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
@@ -1063,10 +1069,10 @@ export class PomodoroView extends ItemView {
             markers.forEach((m, i) => {
                  const color = this.rainbowColors[i % this.rainbowColors.length];
                  const item = list.createDiv({ cls: 'pomodoro-marker-item' });
-                 item.style.backgroundColor = color;
+                 setCssProps(item, { backgroundColor: color });
                  
                  const nameSpan = item.createSpan({ text: m.name });
-                 nameSpan.style.flex = '1';
+                 setCssProps(nameSpan, { flex: '1' });
                  nameSpan.onclick = async () => {
                      // Smart Jump: Find the line freshly to handle text shifts
                      const freshLine = await this.findMarkerLine(file, m.name);
@@ -1173,7 +1179,7 @@ export class PomodoroView extends ItemView {
                  if (cmEditor && parentWidget instanceof HTMLElement) {
                      // 1. Temporarily hide the widget
                      const originalDisplay = parentWidget.style.display;
-                     parentWidget.style.display = 'none';
+                     setCssProps(parentWidget, { display: 'none' });
 
                      try {
                          // 2. Grid Search Strategy using CodeMirror 6 API
@@ -1204,7 +1210,7 @@ export class PomodoroView extends ItemView {
                      } catch (err) {
                          console.warn("Marker hit-test failed:", err);
                      } finally {
-                         parentWidget.style.display = originalDisplay;
+                         setCssProps(parentWidget, { display: originalDisplay });
                      }
                  }
 
@@ -1381,7 +1387,7 @@ export class PomodoroView extends ItemView {
         // Temporarily hide widget to avoid hit-testing issues
         const widgetEl = widget as HTMLElement;
         const originalDisplay = widgetEl.style.display;
-        widgetEl.style.display = 'none';
+        setCssProps(widgetEl, { display: 'none' });
         
         try {
             const xCandidates = [
@@ -1408,7 +1414,7 @@ export class PomodoroView extends ItemView {
                 }
             }
         } finally {
-            widgetEl.style.display = originalDisplay;
+            setCssProps(widgetEl, { display: originalDisplay });
         }
         
         if (detectedLine === -1) return;
@@ -1518,12 +1524,16 @@ export class PomodoroView extends ItemView {
         if (label) {
             if (state.pausedTime) {
                 label.innerText = '⏸️ Paused';
-                label.style.opacity = '1.0';
-                label.style.color = 'var(--text-warning)';
+                setCssProps(label, {
+                    opacity: '1.0',
+                    color: 'var(--text-warning)'
+                });
             } else {
                 label.innerText = state.state === 'WORK' ? '⚠️ Focusing on' : '☕ Taking a break';
-                label.style.opacity = '';
-                label.style.color = '';
+                setCssProps(label, {
+                    opacity: '',
+                    color: ''
+                });
             }
         }
 
@@ -1580,11 +1590,13 @@ export class PomodoroView extends ItemView {
 
         // Top Navigation Bar (Back Arrow + Settings/Refresh)
         const navBar = view.createDiv({ cls: 'pomodoro-timer-nav' });
-        navBar.style.width = '100%';
-        navBar.style.display = 'flex';
-        navBar.style.justifyContent = 'space-between';
-        navBar.style.alignItems = 'center';
-        navBar.style.marginBottom = '8px';
+        setCssProps(navBar, {
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '8px'
+        });
 
         // Navigation (Back Arrow)
         const backBtn = navBar.createEl('button', { cls: 'clickable-icon pomodoro-back-btn' });
@@ -1593,11 +1605,13 @@ export class PomodoroView extends ItemView {
         backBtn.onclick = () => this.plugin.timerService.stopSession();
 
         // Style: Plain
-        backBtn.style.background = 'transparent';
-        backBtn.style.border = 'none';
-        backBtn.style.cursor = 'pointer';
-        backBtn.style.opacity = '0.7';
-        backBtn.style.padding = '0';
+        setCssProps(backBtn, {
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            opacity: '0.7',
+            padding: '0'
+        });
 
         // Right Side Controls (Settings + Refresh)
         const topControls = navBar.createDiv({ attr: { style: 'display: flex; gap: 12px; align-items: center;' } });
@@ -1607,15 +1621,17 @@ export class PomodoroView extends ItemView {
         setIcon(settingsBtn, 'settings');
         settingsBtn.addClass('clickable-icon');
         settingsBtn.ariaLabel = 'Settings';
-        settingsBtn.style.background = 'transparent';
-        settingsBtn.style.border = 'none';
-        settingsBtn.style.boxShadow = 'none';
-        settingsBtn.style.color = 'var(--text-muted)'; // Changed from on-accent
-        settingsBtn.style.opacity = '0.7';
-        settingsBtn.style.cursor = 'pointer';
-        settingsBtn.style.padding = '0';
-        settingsBtn.style.display = 'flex';
-        settingsBtn.style.transform = 'scale(1.0)'; // Reset scale
+        setCssProps(settingsBtn, {
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            color: 'var(--text-muted)',
+            opacity: '0.7',
+            cursor: 'pointer',
+            padding: '0',
+            display: 'flex',
+            transform: 'scale(1.0)'
+        });
 
         settingsBtn.onclick = (e) => {
             e.stopPropagation();
@@ -1630,15 +1646,17 @@ export class PomodoroView extends ItemView {
         setIcon(refreshBtn, 'refresh-cw');
         refreshBtn.addClass('clickable-icon');
         refreshBtn.ariaLabel = 'Refresh';
-        refreshBtn.style.background = 'transparent';
-        refreshBtn.style.border = 'none';
-        refreshBtn.style.boxShadow = 'none';
-        refreshBtn.style.color = 'var(--text-muted)'; // Changed from on-accent
-        refreshBtn.style.opacity = '0.7';
-        refreshBtn.style.cursor = 'pointer';
-        refreshBtn.style.padding = '0';
-        refreshBtn.style.display = 'flex';
-        refreshBtn.style.transform = 'scale(1.0)';
+        setCssProps(refreshBtn, {
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            color: 'var(--text-muted)',
+            opacity: '0.7',
+            cursor: 'pointer',
+            padding: '0',
+            display: 'flex',
+            transform: 'scale(1.0)'
+        });
 
         refreshBtn.onclick = (e) => {
             e.stopPropagation();
@@ -1651,17 +1669,21 @@ export class PomodoroView extends ItemView {
 
         // Header (Clickable for subtasks)
         const header = taskCard.createDiv({ cls: 'pomodoro-active-task-header' });
-        header.style.cursor = 'pointer';
-        header.style.display = 'flex';
-        header.style.justifyContent = 'space-between';
-        header.style.alignItems = 'center';
+        setCssProps(header, {
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+        });
 
         const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
 
         if (state.pausedTime) {
             label.innerText = '⏸️ Paused';
-            label.style.opacity = '1.0';
-            label.style.color = 'var(--text-warning)';
+            setCssProps(label, {
+                opacity: '1.0',
+                color: 'var(--text-warning)'
+            });
         } else {
             label.innerText = state.state === 'WORK' ? '⚠️ Focusing on' : '☕ Taking a break';
         }
@@ -1672,8 +1694,10 @@ export class PomodoroView extends ItemView {
         // Toggle indicator
         if (state.state === 'WORK') {
             const toggleIcon = headerControls.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle' });
-            toggleIcon.style.fontSize = '0.8em';
-            toggleIcon.style.opacity = '0.7';
+            setCssProps(toggleIcon, {
+                fontSize: '0.8em',
+                opacity: '0.7'
+            });
         }
 
         header.onclick = () => {
@@ -1685,16 +1709,18 @@ export class PomodoroView extends ItemView {
 
         // Text Container
         const textContainer = taskCard.createDiv({ cls: 'pomodoro-active-task-text-container' });
-        textContainer.style.display = 'flex';
-        textContainer.style.justifyContent = 'space-between';
-        textContainer.style.alignItems = 'center';
+        setCssProps(textContainer, {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+        });
 
         // Clean task text
         const cleanedText = this.cleanTaskText(state.taskText);
 
         // Render Markdown/Script - Hide until Dataview finishes processing
         const textDiv = textContainer.createDiv({ cls: 'pomodoro-active-task-text' });
-        textDiv.style.display = 'none';
+        setCssProps(textDiv, { display: 'none' });
         
         const textComp = new Component();
         this.addChild(textComp);
@@ -1705,7 +1731,7 @@ export class PomodoroView extends ItemView {
         
         void MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, textComp).then(() => {
             if (!hasDataviewScript) {
-                textDiv.style.display = '';
+                setCssProps(textDiv, { display: '' });
                 return;
             }
             
@@ -1715,7 +1741,7 @@ export class PomodoroView extends ItemView {
                 const stillHasRawCode = text.includes('$=') || text.includes('dv.');
                 
                 if (!stillHasRawCode) {
-                    textDiv.style.display = '';
+                    setCssProps(textDiv, { display: '' });
                     observer.disconnect();
                 }
             });
@@ -1728,7 +1754,7 @@ export class PomodoroView extends ItemView {
             
             // Fallback timeout
             setTimeout(() => {
-                textDiv.style.display = '';
+                setCssProps(textDiv, { display: '' });
                 observer.disconnect();
             }, 3000);
         });
@@ -1736,10 +1762,12 @@ export class PomodoroView extends ItemView {
         // Link Icon
         const linkBtn = textContainer.createEl('button', { cls: 'pomodoro-link-btn', text: '🔗' });
         linkBtn.classList.add('clickable-icon');
-        linkBtn.style.background = 'none';
-        linkBtn.style.border = 'none';
-        linkBtn.style.padding = '0 5px';
-        linkBtn.style.cursor = 'pointer';
+        setCssProps(linkBtn, {
+            background: 'none',
+            border: 'none',
+            padding: '0 5px',
+            cursor: 'pointer'
+        });
         linkBtn.title = "Go to task";
         linkBtn.onclick = (e) => {
             e.stopPropagation();
