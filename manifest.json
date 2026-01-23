@@ -5,7 +5,7 @@
 	"minAppVersion": "0.15.0",
 	"description": "Integrate Pomodoro timer with Markdown tasks. Track focus sessions, log completed cycles directly to your notes, and manage subtasks.",
 	"author": "Isabela Grunevald",
-	"authorUrl": "https://github.com/belagrun/PomodoroTask",
+	"authorUrl": "https://github.com/belagrun",
 	"fundingUrl": "https://github.com/belagrun/PomodoroTask",
 	"isDesktopOnly": false
 }
