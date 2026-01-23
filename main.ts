@@ -529,7 +529,7 @@ class TimerService {
                             newLabel += `/${goalStr}`;
                             goal = parseInt(goalStr);
                         }
-                        
+
                         // Replace the old tag with the new one (removing brackets if present)
                         newLine = line.replace(match[0], newLabel);
 
@@ -683,7 +683,7 @@ export class PomodoroView extends ItemView {
     currentZoom: number = 1.0;
     private renderCounter: number = 0;
     private markdownComponents: Component[] = [];
-    
+
     // Floating Marker State
     markerWidgetExpanded: boolean = false;
     private isRenderingMarkers: boolean = false;
@@ -691,7 +691,7 @@ export class PomodoroView extends ItemView {
     private markerFollowMode: Set<string> = new Set();
     private scrollHandler: (() => void) | null = null;
     rainbowColors: string[] = [
-        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', 
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
         '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
     ];
 
@@ -719,7 +719,7 @@ export class PomodoroView extends ItemView {
             this.floatingStats.remove();
             this.floatingStats = null;
         }
-        
+
         return Promise.resolve();
     }
 
@@ -732,21 +732,21 @@ export class PomodoroView extends ItemView {
     }
 
     async onClose(): Promise<void> {
-         this.clearMarkdownComponents();
-         if (this.floatingStats) {
-             this.floatingStats.remove();
-             this.floatingStats = null;
-         }
-         // Clean up global marker widget
-         const markerWidget = document.querySelector('.pomodoro-marker-widget');
-         if (markerWidget) {
-             markerWidget.remove();
-         }
-         // Clear follow mode and scroll handler
-         this.markerFollowMode.clear();
-         this.removeScrollHandler();
-         
-         return Promise.resolve();
+        this.clearMarkdownComponents();
+        if (this.floatingStats) {
+            this.floatingStats.remove();
+            this.floatingStats = null;
+        }
+        // Clean up global marker widget
+        const markerWidget = document.querySelector('.pomodoro-marker-widget');
+        if (markerWidget) {
+            markerWidget.remove();
+        }
+        // Clear follow mode and scroll handler
+        this.markerFollowMode.clear();
+        this.removeScrollHandler();
+
+        return Promise.resolve();
     }
 
     private removeScrollHandler() {
@@ -778,20 +778,20 @@ export class PomodoroView extends ItemView {
 
         // 4. Aggressive Cut: Remove common Obsidian Tasks metadata (preserving logic)
         // Replaces metadata patterns with empty string instead of cutting the tail
-        
+
         // Recurrence: 🔁 every ... when done (must be before date removal)
         // Matches: "🔁 every day", "🔁 every week", "🔁 every day when done", etc.
         clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/giu, '');
-        
+
         // On completion action: 🏁 delete
         clean = clean.replace(/🏁\s*delete/giu, '');
-        
+
         // Dates (YYYY-MM-DD): 📅 2023-01-01, ⏳ 2023-01-01, etc.
         clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/gu, '');
-        
+
         // Priorities: 🔺, ⏫, 🔽
         clean = clean.replace(/[🔺⏫🔽]/gu, '');
-        
+
         // Remove standalone symbols if left over
         clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/gu, '');
 
@@ -899,321 +899,321 @@ export class PomodoroView extends ItemView {
 
             // Priority 1: Current Active File (so you can use markers on any note you are editing)
             let file: TFile | null = this.plugin.app.workspace.getActiveFile();
-        
-        // Priority 2: If no active file (e.g. initial load or focusing sidebar), fallback to Timer Task File
-        if (!file && this.plugin.timerService.state.taskFile) {
-           const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile);
-           if (abstractFile instanceof TFile) {
-               file = abstractFile;
-           }
-        }
-        
-        if (!file) {
-            // Remove widget if no file context
-            const existing = parent.querySelector('.pomodoro-marker-widget');
-            if (existing) existing.remove();
-            return;
-        }
 
-        // Try to find existing widget in body
-        let widget = parent.querySelector('.pomodoro-marker-widget') as HTMLElement;
-        
-        if (!widget) {
-            widget = parent.createDiv({ cls: 'pomodoro-marker-widget' });
-            
-            // Restore position if valid
-            const savedPos = this.plugin.settings.markerWidgetPos;
-            if (savedPos) {
-                 widget.style.right = 'auto';
-                 widget.style.bottom = 'auto';
-                 widget.style.left = savedPos.x + 'px';
-                 widget.style.top = savedPos.y + 'px';
+            // Priority 2: If no active file (e.g. initial load or focusing sidebar), fallback to Timer Task File
+            if (!file && this.plugin.timerService.state.taskFile) {
+                const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile);
+                if (abstractFile instanceof TFile) {
+                    file = abstractFile;
+                }
             }
 
-            // Header
-            const header = widget.createDiv({ cls: 'pomodoro-marker-header' });
-            
-            // Drag Logic
-            let isDragging = false;
-            let startX = 0;
-            let startY = 0;
-            let initialLeft = 0;
-            let initialTop = 0;
-            let hasMoved = false;
+            if (!file) {
+                // Remove widget if no file context
+                const existing = parent.querySelector('.pomodoro-marker-widget');
+                if (existing) existing.remove();
+                return;
+            }
 
-            header.onmousedown = (e) => {
-                isDragging = true;
-                hasMoved = false;
-                startX = e.clientX;
-                startY = e.clientY;
-                const rect = widget.getBoundingClientRect();
-                initialLeft = rect.left;
-                initialTop = rect.top;
-                
-                // Clear default styles if set via CSS (right/bottom) to allow absolute positioning via left/top
-                widget.style.right = 'auto';
-                widget.style.bottom = 'auto';
-                widget.style.left = initialLeft + 'px';
-                widget.style.top = initialTop + 'px';
-                
-                // Add temp global listeners
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
-                e.preventDefault(); // Prevent text selection
-            };
+            // Try to find existing widget in body
+            let widget = parent.querySelector('.pomodoro-marker-widget') as HTMLElement;
 
-            const onMouseMove = (e: MouseEvent) => {
-                if (!isDragging) return;
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+            if (!widget) {
+                widget = parent.createDiv({ cls: 'pomodoro-marker-widget' });
 
-                widget.style.left = (initialLeft + dx) + 'px';
-                widget.style.top = (initialTop + dy) + 'px';
-            };
+                // Restore position if valid
+                const savedPos = this.plugin.settings.markerWidgetPos;
+                if (savedPos) {
+                    widget.style.right = 'auto';
+                    widget.style.bottom = 'auto';
+                    widget.style.left = savedPos.x + 'px';
+                    widget.style.top = savedPos.y + 'px';
+                }
 
-            const onMouseUp = async () => {
-                if (!isDragging) return;
-                isDragging = false;
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
+                // Header
+                const header = widget.createDiv({ cls: 'pomodoro-marker-header' });
 
-                // Save position
-                const rect = widget.getBoundingClientRect();
-                this.plugin.settings.markerWidgetPos = { x: rect.left, y: rect.top };
-                await this.plugin.saveAllData();
-            };
+                // Drag Logic
+                let isDragging = false;
+                let startX = 0;
+                let startY = 0;
+                let initialLeft = 0;
+                let initialTop = 0;
+                let hasMoved = false;
 
-            header.onclick = (e) => {
-                e.stopPropagation();
-                // Only toggle if we didn't drag significantly
-                if (!hasMoved) {
-                    this.markerWidgetExpanded = !this.markerWidgetExpanded;
-                    // Reset follow mode when collapsing
-                    if (!this.markerWidgetExpanded) {
-                        this.resetFollowModeOnCollapse();
+                header.onmousedown = (e) => {
+                    isDragging = true;
+                    hasMoved = false;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = widget.getBoundingClientRect();
+                    initialLeft = rect.left;
+                    initialTop = rect.top;
+
+                    // Clear default styles if set via CSS (right/bottom) to allow absolute positioning via left/top
+                    widget.style.right = 'auto';
+                    widget.style.bottom = 'auto';
+                    widget.style.left = initialLeft + 'px';
+                    widget.style.top = initialTop + 'px';
+
+                    // Add temp global listeners
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                    e.preventDefault(); // Prevent text selection
+                };
+
+                const onMouseMove = (e: MouseEvent) => {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+
+                    widget.style.left = (initialLeft + dx) + 'px';
+                    widget.style.top = (initialTop + dy) + 'px';
+                };
+
+                const onMouseUp = async () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+
+                    // Save position
+                    const rect = widget.getBoundingClientRect();
+                    this.plugin.settings.markerWidgetPos = { x: rect.left, y: rect.top };
+                    await this.plugin.saveAllData();
+                };
+
+                header.onclick = (e) => {
+                    e.stopPropagation();
+                    // Only toggle if we didn't drag significantly
+                    if (!hasMoved) {
+                        this.markerWidgetExpanded = !this.markerWidgetExpanded;
+                        // Reset follow mode when collapsing
+                        if (!this.markerWidgetExpanded) {
+                            this.resetFollowModeOnCollapse();
+                        }
+                        void this.renderMarkers(container); // Re-render to update classes
                     }
-                    void this.renderMarkers(container); // Re-render to update classes
-                }
-            };
-            
-            // Add tooltip to explain it is draggable or fixed
-            header.title = "Drag to move • click to toggle";
-            header.addClass('pomodoro-draggable');
+                };
 
-            header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
-            header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
-            
-            // Content Area Structure
-            widget.createDiv({ cls: 'pomodoro-marker-content' });
-        }
+                // Add tooltip to explain it is draggable or fixed
+                header.title = "Drag to move • click to toggle";
+                header.addClass('pomodoro-draggable');
 
+                header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
+                header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
 
-        // Apply Expansion State
-        if (this.markerWidgetExpanded) {
-             widget.addClass('is-expanded');
-        } else {
-             widget.removeClass('is-expanded');
-        }
-
-        // Cleanup duplicate content areas if any exist
-        const allContentAreas = widget.querySelectorAll('.pomodoro-marker-content');
-        if (allContentAreas.length > 1) {
-            for (let i = 1; i < allContentAreas.length; i++) {
-                allContentAreas[i].remove();
-            }
-        }
-
-        // Populate Content
-        const contentArea = widget.querySelector('.pomodoro-marker-content') as HTMLElement;
-        if (contentArea) {
-            contentArea.empty(); // Use Obsidian's empty() method instead of innerHTML
-
-            const fileContent = await this.plugin.app.vault.read(file);
-            const lines = fileContent.split('\n');
-            const markers: { line: number, name: string }[] = [];
-            const markerRegex = /<!-- Marker: (.*?) -->/;
-
-            lines.forEach((line, idx) => {
-                const match = line.match(markerRegex);
-                if (match) {
-                    markers.push({ line: idx, name: match[1] || 'Unnamed' });
-                }
-            });
-
-            const list = contentArea.createDiv({ cls: 'pomodoro-marker-list' });
-
-            if (markers.length === 0) {
-                 list.createDiv({ text: "No markers", attr: { style: 'font-size: 0.8em; color: var(--text-muted); text-align: center;' }});
+                // Content Area Structure
+                widget.createDiv({ cls: 'pomodoro-marker-content' });
             }
 
-            // Capture file reference for use in callbacks (file is guaranteed non-null at this point)
-            const currentFile = file;
 
-            markers.forEach((m, i) => {
-                 const color = this.rainbowColors[i % this.rainbowColors.length];
-                 const item = list.createDiv({ cls: 'pomodoro-marker-item' });
-                 item.style.backgroundColor = color;
-                 
-                 const nameSpan = item.createSpan({ text: m.name, cls: 'pomodoro-marker-item-name' });
-                 nameSpan.onclick = async () => {
-                     // Smart Jump: Find the line freshly to handle text shifts
-                     const freshLine = await this.findMarkerLine(currentFile, m.name);
-                     if (freshLine !== -1) {
-                        void this.jumpToTask(currentFile.path, freshLine);
-                     } else {
-                        new Notice("Marker not found (deleted?)");
-                        void this.renderMarkers(container); // Refresh list
-                     }
-                 };
+            // Apply Expansion State
+            if (this.markerWidgetExpanded) {
+                widget.addClass('is-expanded');
+            } else {
+                widget.removeClass('is-expanded');
+            }
 
-                 // Pin/Follow Toggle Button
-                 const isFollowing = this.markerFollowMode.has(m.name);
-                 const followBtn = item.createSpan({ 
-                     cls: 'pomodoro-marker-follow', 
-                     text: isFollowing ? '→' : '📌'
-                 });
-                 followBtn.title = isFollowing ? 'Following window (click to pin)' : 'Pinned (click to follow window)';
-                 followBtn.onclick = (e) => {
-                     e.stopPropagation();
-                     if (this.markerFollowMode.has(m.name)) {
-                         this.markerFollowMode.delete(m.name);
-                     } else {
-                         this.markerFollowMode.add(m.name);
-                     }
-                     this.setupScrollHandler(currentFile, container);
-                     void this.renderMarkers(container);
-                 };
+            // Cleanup duplicate content areas if any exist
+            const allContentAreas = widget.querySelectorAll('.pomodoro-marker-content');
+            if (allContentAreas.length > 1) {
+                for (let i = 1; i < allContentAreas.length; i++) {
+                    allContentAreas[i].remove();
+                }
+            }
 
-                 const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
-                 editBtn.onclick = async (e) => {
-                     e.stopPropagation();
-                     const freshLine = await this.findMarkerLine(currentFile, m.name);
-                     if (freshLine !== -1) {
-                         new RenameModal(this.plugin.app, m.name, async (newName) => {
-                             if (newName && newName !== m.name) {
-                                await this.renameMarker(currentFile, freshLine, m.name, newName);
-                             }
-                         }).open();
-                     } else {
-                        new Notice("Marker not found.");
+            // Populate Content
+            const contentArea = widget.querySelector('.pomodoro-marker-content') as HTMLElement;
+            if (contentArea) {
+                contentArea.empty(); // Use Obsidian's empty() method instead of innerHTML
+
+                const fileContent = await this.plugin.app.vault.read(file);
+                const lines = fileContent.split('\n');
+                const markers: { line: number, name: string }[] = [];
+                const markerRegex = /<!-- Marker: (.*?) -->/;
+
+                lines.forEach((line, idx) => {
+                    const match = line.match(markerRegex);
+                    if (match) {
+                        markers.push({ line: idx, name: match[1] || 'Unnamed' });
+                    }
+                });
+
+                const list = contentArea.createDiv({ cls: 'pomodoro-marker-list' });
+
+                if (markers.length === 0) {
+                    list.createDiv({ text: "No markers", attr: { style: 'font-size: 0.8em; color: var(--text-muted); text-align: center;' } });
+                }
+
+                // Capture file reference for use in callbacks (file is guaranteed non-null at this point)
+                const currentFile = file;
+
+                markers.forEach((m, i) => {
+                    const color = this.rainbowColors[i % this.rainbowColors.length];
+                    const item = list.createDiv({ cls: 'pomodoro-marker-item' });
+                    item.style.backgroundColor = color;
+
+                    const nameSpan = item.createSpan({ text: m.name, cls: 'pomodoro-marker-item-name' });
+                    nameSpan.onclick = async () => {
+                        // Smart Jump: Find the line freshly to handle text shifts
+                        const freshLine = await this.findMarkerLine(currentFile, m.name);
+                        if (freshLine !== -1) {
+                            void this.jumpToTask(currentFile.path, freshLine);
+                        } else {
+                            new Notice("Marker not found (deleted?)");
+                            void this.renderMarkers(container); // Refresh list
+                        }
+                    };
+
+                    // Pin/Follow Toggle Button
+                    const isFollowing = this.markerFollowMode.has(m.name);
+                    const followBtn = item.createSpan({
+                        cls: 'pomodoro-marker-follow',
+                        text: isFollowing ? '→' : '📌'
+                    });
+                    followBtn.title = isFollowing ? 'Following window (click to pin)' : 'Pinned (click to follow window)';
+                    followBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (this.markerFollowMode.has(m.name)) {
+                            this.markerFollowMode.delete(m.name);
+                        } else {
+                            this.markerFollowMode.add(m.name);
+                        }
+                        this.setupScrollHandler(currentFile, container);
                         void this.renderMarkers(container);
-                     }
-                 };
+                    };
 
-                 const delBtn = item.createSpan({ cls: 'pomodoro-marker-delete', text: '✖' });
-                 delBtn.onclick = async (e) => {
-                     e.stopPropagation();
-                     // Smart Delete: Find line freshly
-                     const freshLine = await this.findMarkerLine(currentFile, m.name);
-                     if (freshLine !== -1) {
-                        await this.deleteMarker(currentFile, freshLine);
-                     }
-                 };
-            });
-            
-            // Setup scroll handler for following markers
-            this.setupScrollHandler(currentFile, container);
+                    const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
+                    editBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        const freshLine = await this.findMarkerLine(currentFile, m.name);
+                        if (freshLine !== -1) {
+                            new RenameModal(this.plugin.app, m.name, async (newName) => {
+                                if (newName && newName !== m.name) {
+                                    await this.renameMarker(currentFile, freshLine, m.name, newName);
+                                }
+                            }).open();
+                        } else {
+                            new Notice("Marker not found.");
+                            void this.renderMarkers(container);
+                        }
+                    };
 
-            // Add Button
-            const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
-            addBtn.createSpan({ text: '➕' });
-            addBtn.createSpan({ text: ' Add marker here' });
-            addBtn.onclick = async (e) => {
-                 e.stopPropagation();
-                 
-                 const parentWidget = addBtn.closest('.pomodoro-marker-widget');
-                 const widgetHeader = parentWidget?.querySelector('.pomodoro-marker-header');
+                    const delBtn = item.createSpan({ cls: 'pomodoro-marker-delete', text: '✖' });
+                    delBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        // Smart Delete: Find line freshly
+                        const freshLine = await this.findMarkerLine(currentFile, m.name);
+                        if (freshLine !== -1) {
+                            await this.deleteMarker(currentFile, freshLine);
+                        }
+                    };
+                });
 
-                 if (!widgetHeader) return;
+                // Setup scroll handler for following markers
+                this.setupScrollHandler(currentFile, container);
 
-                 const headerRect = widgetHeader.getBoundingClientRect();
-                 const targetY = headerRect.top + (headerRect.height / 2);
-                 
-                 // Find the correct leaf for this file (not just "active" which might be lost)
-                 let targetLeaf: WorkspaceLeaf | undefined;
-                 this.plugin.app.workspace.iterateAllLeaves(leaf => {
-                     if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === currentFile.path) {
-                         targetLeaf = leaf;
-                     }
-                 });
+                // Add Button
+                const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
+                addBtn.createSpan({ text: '➕' });
+                addBtn.createSpan({ text: ' Add marker here' });
+                addBtn.onclick = async (e) => {
+                    e.stopPropagation();
 
-                 if (!targetLeaf) {
-                     new Notice("File is not open in any editor.");
-                     return;
-                 }
+                    const parentWidget = addBtn.closest('.pomodoro-marker-widget');
+                    const widgetHeader = parentWidget?.querySelector('.pomodoro-marker-header');
 
-                 // @ts-ignore
-                 const view = targetLeaf.view as MarkdownView;
-                 
-                 // Ensure we are in Editing mode
-                 if (view.getMode() !== 'source') {
-                     new Notice("Please switch to editing mode (Live Preview or Source) to add markers contextually.");
-                     // Fallback to appending? Or just stop.
-                     return;
-                 }
+                    if (!widgetHeader) return;
 
-                 const contentRect = view.contentEl.getBoundingClientRect();
-                 // @ts-ignore - Access the underlying CodeMirror 6 view
-                 const cmEditor = view.editor.cm;
+                    const headerRect = widgetHeader.getBoundingClientRect();
+                    const targetY = headerRect.top + (headerRect.height / 2);
 
-                 let detectedPos = null;
+                    // Find the correct leaf for this file (not just "active" which might be lost)
+                    let targetLeaf: WorkspaceLeaf | undefined;
+                    this.plugin.app.workspace.iterateAllLeaves(leaf => {
+                        if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === currentFile.path) {
+                            targetLeaf = leaf;
+                        }
+                    });
 
-                 if (cmEditor && parentWidget instanceof HTMLElement) {
-                     // 1. Temporarily hide the widget using CSS class
-                     parentWidget.addClass('pomodoro-hidden');
+                    if (!targetLeaf) {
+                        new Notice("File is not open in any editor.");
+                        return;
+                    }
 
-                     try {
-                         // 2. Grid Search Strategy using CodeMirror 6 API
-                         const xCandidates = [
-                             contentRect.left + (contentRect.width * 0.1) + 20,
-                             contentRect.left + (contentRect.width * 0.5),
-                             contentRect.right - 50
-                         ];
+                    // @ts-ignore
+                    const view = targetLeaf.view as MarkdownView;
 
-                         const yOffsets = [0, 8, -8, 16, -16];
+                    // Ensure we are in Editing mode
+                    if (view.getMode() !== 'source') {
+                        new Notice("Please switch to editing mode (Live Preview or Source) to add markers contextually.");
+                        // Fallback to appending? Or just stop.
+                        return;
+                    }
 
-                         outerLoop:
-                         for (const dy of yOffsets) {
-                             const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
-                             
-                             for (const x of xCandidates) {
-                                 // @ts-ignore - CodeMirror 6 posAtCoords
-                                 const pos = cmEditor.posAtCoords({ x: x, y: safeY });
-                                 if (pos !== null && pos !== undefined) {
-                                     // @ts-ignore
-                                     const line = cmEditor.state.doc.lineAt(pos);
-                                     detectedPos = { line: line.number - 1 }; // 0-indexed
-                                     break outerLoop;
-                                 }
-                             }
-                         }
+                    const contentRect = view.contentEl.getBoundingClientRect();
+                    // @ts-ignore - Access the underlying CodeMirror 6 view
+                    const cmEditor = view.editor.cm;
 
-                     } catch (err) {
-                         console.warn("Marker hit-test failed:", err);
-                     } finally {
-                         parentWidget.removeClass('pomodoro-hidden');
-                     }
-                 }
+                    let detectedPos = null;
 
-                 let calculatedLine = -1;
-                 if (detectedPos) {
-                     calculatedLine = detectedPos.line;
-                 } else {
-                     new Notice("Could not align with text line. Try moving the widget closer to the text.");
-                     return; // Do NOT fallback using cursor, as it is confusing
-                 }
+                    if (cmEditor && parentWidget instanceof HTMLElement) {
+                        // 1. Temporarily hide the widget using CSS class
+                        parentWidget.addClass('pomodoro-hidden');
 
-                 // Check if invalid
-                 if (calculatedLine === -1) {
-                     new Notice("Could not determine line position. Is the widget aligned with text?");
-                     return;
-                 }
+                        try {
+                            // 2. Grid Search Strategy using CodeMirror 6 API
+                            const xCandidates = [
+                                contentRect.left + (contentRect.width * 0.1) + 20,
+                                contentRect.left + (contentRect.width * 0.5),
+                                contentRect.right - 50
+                            ];
 
-                 await this.addMarker(currentFile, calculatedLine);
-            };
-        }
+                            const yOffsets = [0, 8, -8, 16, -16];
+
+                            outerLoop:
+                            for (const dy of yOffsets) {
+                                const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
+
+                                for (const x of xCandidates) {
+                                    // @ts-ignore - CodeMirror 6 posAtCoords
+                                    const pos = cmEditor.posAtCoords({ x: x, y: safeY });
+                                    if (pos !== null && pos !== undefined) {
+                                        // @ts-ignore
+                                        const line = cmEditor.state.doc.lineAt(pos);
+                                        detectedPos = { line: line.number - 1 }; // 0-indexed
+                                        break outerLoop;
+                                    }
+                                }
+                            }
+
+                        } catch (err) {
+                            console.warn("Marker hit-test failed:", err);
+                        } finally {
+                            parentWidget.removeClass('pomodoro-hidden');
+                        }
+                    }
+
+                    let calculatedLine = -1;
+                    if (detectedPos) {
+                        calculatedLine = detectedPos.line;
+                    } else {
+                        new Notice("Could not align with text line. Try moving the widget closer to the text.");
+                        return; // Do NOT fallback using cursor, as it is confusing
+                    }
+
+                    // Check if invalid
+                    if (calculatedLine === -1) {
+                        new Notice("Could not determine line position. Is the widget aligned with text?");
+                        return;
+                    }
+
+                    await this.addMarker(currentFile, calculatedLine);
+                };
+            }
         } finally {
             this.isRenderingMarkers = false;
         }
@@ -1255,16 +1255,16 @@ export class PomodoroView extends ItemView {
             const cursor = view.editor.getCursor();
             insertLine = cursor.line;
         } else {
-             // Fallback: Append to end
-             insertLine = lines.length;
+            // Fallback: Append to end
+            insertLine = lines.length;
         }
 
         // Splice inserts AT the index, shifting existing items down.
         lines.splice(insertLine, 0, markerText);
-        
+
         await this.plugin.app.vault.modify(file, lines.join('\n'));
         new Notice(`Added ${name} at line ${insertLine + 1}`);
-        
+
         setTimeout(() => this.render(), 100);
     }
 
@@ -1284,31 +1284,31 @@ export class PomodoroView extends ItemView {
         if (lines.length > lineIdx) {
             const markerRegex = new RegExp(`<!-- Marker: ${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} -->`);
             if (markerRegex.test(lines[lineIdx])) {
-                 lines[lineIdx] = `<!-- Marker: ${newName} -->`;
-                 await this.plugin.app.vault.modify(file, lines.join('\n'));
-                 new Notice(`Renamed to ${newName}`);
-                 this.render();
+                lines[lineIdx] = `<!-- Marker: ${newName} -->`;
+                await this.plugin.app.vault.modify(file, lines.join('\n'));
+                new Notice(`Renamed to ${newName}`);
+                this.render();
             } else {
-                 new Notice("Marker moved or changed, please refresh.");
-                 this.render();
+                new Notice("Marker moved or changed, please refresh.");
+                this.render();
             }
         }
     }
 
     // ---- MARKER FOLLOW MODE ----
-    
+
     private setupScrollHandler(file: TFile, container: Element) {
         // Remove existing handler first
         this.removeScrollHandler();
-        
+
         // If no markers are in follow mode, don't set up handler
         if (this.markerFollowMode.size === 0) {
             return;
         }
-        
+
         let isMovingMarker = false;
         let scrollTimeout: number | null = null;
-        
+
         this.scrollHandler = () => {
             // Debounce scroll events
             if (scrollTimeout) {
@@ -1317,7 +1317,7 @@ export class PomodoroView extends ItemView {
             scrollTimeout = window.setTimeout(async () => {
                 if (isMovingMarker) return;
                 isMovingMarker = true;
-                
+
                 try {
                     await this.moveFollowingMarkers(file, container);
                 } finally {
@@ -1325,23 +1325,23 @@ export class PomodoroView extends ItemView {
                 }
             }, 100); // Debounce 100ms
         };
-        
+
         // Capture scroll on any element (true for capture phase)
         document.addEventListener('scroll', this.scrollHandler, true);
     }
-    
+
     private async moveFollowingMarkers(file: TFile, container: Element) {
         if (this.markerFollowMode.size === 0) return;
-        
+
         const widget = document.querySelector('.pomodoro-marker-widget');
         if (!widget) return;
-        
+
         const widgetHeader = widget.querySelector('.pomodoro-marker-header');
         if (!widgetHeader) return;
-        
+
         const headerRect = widgetHeader.getBoundingClientRect();
         const targetY = headerRect.top + (headerRect.height / 2);
-        
+
         // Find the correct leaf for this file
         let targetLeaf: WorkspaceLeaf | undefined;
         this.plugin.app.workspace.iterateAllLeaves(leaf => {
@@ -1349,39 +1349,39 @@ export class PomodoroView extends ItemView {
                 targetLeaf = leaf;
             }
         });
-        
+
         if (!targetLeaf) return;
-        
+
         const view = targetLeaf.view as MarkdownView;
-        
+
         // Ensure editing mode
         if (view.getMode() !== 'source') return;
-        
+
         const contentRect = view.contentEl.getBoundingClientRect();
         // @ts-ignore - Access CodeMirror 6
         const cmEditor = view.editor.cm;
         if (!cmEditor) return;
-        
+
         // Calculate the target line based on widget Y position
         let detectedLine = -1;
-        
+
         // Temporarily hide widget to avoid hit-testing issues using CSS class
         const widgetEl = widget as HTMLElement;
         widgetEl.addClass('pomodoro-hidden');
-        
+
         try {
             const xCandidates = [
                 contentRect.left + (contentRect.width * 0.1) + 20,
                 contentRect.left + (contentRect.width * 0.5),
                 contentRect.right - 50
             ];
-            
+
             const yOffsets = [0, 8, -8, 16, -16];
-            
+
             outerLoop:
             for (const dy of yOffsets) {
                 const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
-                
+
                 for (const x of xCandidates) {
                     // @ts-ignore
                     const pos = cmEditor.posAtCoords({ x: x, y: safeY });
@@ -1396,95 +1396,95 @@ export class PomodoroView extends ItemView {
         } finally {
             widgetEl.removeClass('pomodoro-hidden');
         }
-        
+
         if (detectedLine === -1) return;
-        
+
         // Read file content to check for script blocks
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
-        
+
         // Adjust target line if it's inside a script block
         detectedLine = this.findValidLineOutsideScriptBlock(lines, detectedLine);
-        
+
         // Move each following marker
         for (const markerName of this.markerFollowMode) {
             await this.moveMarkerToLine(file, markerName, detectedLine, lines);
         }
     }
-    
+
     private findValidLineOutsideScriptBlock(lines: string[], targetLine: number): number {
         // Find if targetLine is inside a script block
         let inScriptBlock = false;
         let scriptBlockStart = -1;
         let scriptBlockEnd = -1;
-        
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
+
             if (!inScriptBlock && line.match(/^```/)) {
                 inScriptBlock = true;
                 scriptBlockStart = i;
             } else if (inScriptBlock && line === '```') {
                 scriptBlockEnd = i;
-                
+
                 // Check if our target is inside this block
                 if (targetLine >= scriptBlockStart && targetLine <= scriptBlockEnd) {
                     // Jump to the first line after the script block
                     return Math.min(scriptBlockEnd + 1, lines.length - 1);
                 }
-                
+
                 inScriptBlock = false;
                 scriptBlockStart = -1;
             }
         }
-        
+
         // If we're still in a script block at EOF (unclosed), jump after it
         if (inScriptBlock && targetLine >= scriptBlockStart) {
             return lines.length - 1;
         }
-        
+
         return targetLine;
     }
-    
+
     private async moveMarkerToLine(file: TFile, markerName: string, targetLine: number, currentLines?: string[]) {
         const content = currentLines ? currentLines.join('\n') : await this.plugin.app.vault.read(file);
         const lines = currentLines || content.split('\n');
-        
+
         // Find current position of the marker
         const markerComment = `<!-- Marker: ${markerName} -->`;
         const currentLine = lines.findIndex(line => line.includes(markerComment));
-        
+
         if (currentLine === -1) {
             // Marker no longer exists, remove from follow mode
             this.markerFollowMode.delete(markerName);
             return;
         }
-        
+
         // Don't move if already at target line (or close enough)
         if (currentLine === targetLine || Math.abs(currentLine - targetLine) <= 1) {
             return;
         }
-        
+
         // Remove marker from current position
         const markerText = lines[currentLine];
         lines.splice(currentLine, 1);
-        
+
         // Adjust targetLine if we removed a line before it
         let adjustedTarget = targetLine;
         if (currentLine < targetLine) {
             adjustedTarget = targetLine - 1;
         }
-        
+
         // Ensure target is within bounds
         adjustedTarget = Math.max(0, Math.min(adjustedTarget, lines.length));
-        
+
         // Insert at new position
         lines.splice(adjustedTarget, 0, markerText);
-        
+
         // Save file
         await this.plugin.app.vault.modify(file, lines.join('\n'));
     }
-    
+
     // Reset follow mode when widget is collapsed
     private resetFollowModeOnCollapse() {
         this.markerFollowMode.clear();
@@ -1631,37 +1631,37 @@ export class PomodoroView extends ItemView {
 
         // Render Markdown/Script - Hide until Dataview finishes processing
         const textDiv = textContainer.createDiv({ cls: 'pomodoro-active-task-text pomodoro-hidden' });
-        
+
         const textComp = new Component();
         this.addChild(textComp);
         this.markdownComponents.push(textComp);
-        
+
         // Check if text contains Dataview scripts
         const hasDataviewScript = /`\$=/.test(cleanedText);
-        
+
         void MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, textComp).then(() => {
             if (!hasDataviewScript) {
                 textDiv.removeClass('pomodoro-hidden');
                 return;
             }
-            
+
             // Use MutationObserver to detect when Dataview finishes
             const observer = new MutationObserver(() => {
                 const text = textDiv.textContent || '';
                 const stillHasRawCode = text.includes('$=') || text.includes('dv.');
-                
+
                 if (!stillHasRawCode) {
                     textDiv.removeClass('pomodoro-hidden');
                     observer.disconnect();
                 }
             });
-            
-            observer.observe(textDiv, { 
-                childList: true, 
-                subtree: true, 
-                characterData: true 
+
+            observer.observe(textDiv, {
+                childList: true,
+                subtree: true,
+                characterData: true
             });
-            
+
             // Fallback timeout
             setTimeout(() => {
                 textDiv.removeClass('pomodoro-hidden');
@@ -1967,36 +1967,36 @@ export class PomodoroView extends ItemView {
             const cleanComp = new Component();
             this.addChild(cleanComp);
             this.markdownComponents.push(cleanComp);
-            
+
             // Check if text contains Dataview scripts
             const hasDataviewScript = /`\$=/.test(cleanText);
-            
+
             void MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, cleanComp).then(() => {
                 if (!hasDataviewScript) {
                     // No Dataview, show immediately
                     cleanSpan.removeClass('pomodoro-hidden');
                     return;
                 }
-                
+
                 // Use MutationObserver to detect when Dataview finishes
                 // Dataview replaces <code> elements with rendered content
                 const observer = new MutationObserver(() => {
                     // Check if raw code is still visible
                     const text = cleanSpan.textContent || '';
                     const stillHasRawCode = text.includes('$=') || text.includes('dv.');
-                    
+
                     if (!stillHasRawCode) {
                         cleanSpan.removeClass('pomodoro-hidden');
                         observer.disconnect();
                     }
                 });
-                
-                observer.observe(cleanSpan, { 
-                    childList: true, 
-                    subtree: true, 
-                    characterData: true 
+
+                observer.observe(cleanSpan, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
                 });
-                
+
                 // Fallback timeout - show after 3 seconds regardless
                 setTimeout(() => {
                     cleanSpan.removeClass('pomodoro-hidden');
@@ -2011,31 +2011,31 @@ export class PomodoroView extends ItemView {
             const hoverComp = new Component();
             this.addChild(hoverComp);
             this.markdownComponents.push(hoverComp);
-            
+
             const hoverHasDataview = /`\$=/.test(hoverText);
-            
+
             void MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, hoverComp).then(() => {
                 if (!hoverHasDataview) {
                     fullSpan.removeClass('pomodoro-hidden');
                     return;
                 }
-                
+
                 const observer = new MutationObserver(() => {
                     const text = fullSpan.textContent || '';
                     const stillHasRawCode = text.includes('$=') || text.includes('dv.');
-                    
+
                     if (!stillHasRawCode) {
                         fullSpan.removeClass('pomodoro-hidden');
                         observer.disconnect();
                     }
                 });
-                
-                observer.observe(fullSpan, { 
-                    childList: true, 
-                    subtree: true, 
-                    characterData: true 
+
+                observer.observe(fullSpan, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
                 });
-                
+
                 setTimeout(() => {
                     fullSpan.removeClass('pomodoro-hidden');
                     observer.disconnect();
@@ -2223,37 +2223,37 @@ export class PomodoroView extends ItemView {
             };
 
             const textDiv = row.createDiv({ cls: 'pomodoro-subtask-text pomodoro-hidden' });
-            
+
             const textComp = new Component();
             this.addChild(textComp);
             this.markdownComponents.push(textComp);
-            
+
             // Check if text contains Dataview scripts
             const hasDataviewScript = /`\$=/.test(task.text);
-            
+
             void MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, textComp).then(() => {
                 if (!hasDataviewScript) {
                     textDiv.removeClass('pomodoro-hidden');
                     return;
                 }
-                
+
                 // Use MutationObserver to detect when Dataview finishes
                 const observer = new MutationObserver(() => {
                     const text = textDiv.textContent || '';
                     const stillHasRawCode = text.includes('$=') || text.includes('dv.');
-                    
+
                     if (!stillHasRawCode) {
                         textDiv.removeClass('pomodoro-hidden');
                         observer.disconnect();
                     }
                 });
-                
-                observer.observe(textDiv, { 
-                    childList: true, 
-                    subtree: true, 
-                    characterData: true 
+
+                observer.observe(textDiv, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
                 });
-                
+
                 // Fallback timeout
                 setTimeout(() => {
                     textDiv.removeClass('pomodoro-hidden');
@@ -2452,7 +2452,7 @@ class PomodoroSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        
+
         new Setting(containerEl)
             .setName('Pomodoro settings')
             .setHeading();
