@@ -914,7 +914,10 @@ export class PomodoroView extends ItemView {
         
         // Priority 2: If no active file (e.g. initial load or focusing sidebar), fallback to Timer Task File
         if (!file && this.plugin.timerService.state.taskFile) {
-           file = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile) as TFile;
+           const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile);
+           if (abstractFile instanceof TFile) {
+               file = abstractFile;
+           }
         }
         
         if (!file) {

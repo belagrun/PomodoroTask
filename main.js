@@ -647,7 +647,10 @@ var PomodoroView = class extends import_obsidian.ItemView {
       }
       let file = this.plugin.app.workspace.getActiveFile();
       if (!file && this.plugin.timerService.state.taskFile) {
-        file = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile);
+        const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.timerService.state.taskFile);
+        if (abstractFile instanceof import_obsidian.TFile) {
+          file = abstractFile;
+        }
       }
       if (!file) {
         const existing = parent.querySelector(".pomodoro-marker-widget");
