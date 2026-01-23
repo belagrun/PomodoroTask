@@ -433,10 +433,10 @@ var CycleConfigModal = class extends import_obsidian.Modal {
     contentEl.empty();
     contentEl.createEl("h3", { text: "Cycle configuration", attr: { style: "text-align: center; margin-bottom: 20px;" } });
     const container = contentEl.createDiv({ cls: "pomodoro-config-modal-container" });
-    this.createConfigSection(container, "Focus Duration", this.workDuration, [5, 10, 15, 20, 25, 30, 45, 50, 60], (val) => {
+    this.createConfigSection(container, "Focus duration", this.workDuration, [5, 10, 15, 20, 25, 30, 45, 50, 60], (val) => {
       this.workDuration = val;
     });
-    this.createConfigSection(container, "Short Break", this.shortBreakDuration, [3, 5, 10, 15, 20], (val) => {
+    this.createConfigSection(container, "Short break", this.shortBreakDuration, [3, 5, 10, 15, 20], (val) => {
       this.shortBreakDuration = val;
     });
     const footer = contentEl.createDiv({ attr: { style: "margin-top: 20px; display: flex; justify-content: center;" } });
@@ -573,7 +573,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, "");
     clean = clean.replace(/#[\p{L}\p{N}_/-]+/gu, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
-    clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]+/gi, "");
+    clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/gi, "");
     clean = clean.replace(/🏁\s*delete/gi, "");
     clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, "");
     clean = clean.replace(/[🔺⏫🔽]/g, "");
@@ -1751,7 +1751,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     stat1.createSpan({ text: "Cycles", attr: { style: "font-size: 0.8em; opacity: 0.7;" } });
     stat1.createSpan({ cls: "pomodoro-stat-value", text: String(stats.completedSessions) });
     const stat2 = statsDiv.createDiv({ cls: "pomodoro-stat-item" });
-    stat2.createSpan({ text: "Focus Time", attr: { style: "font-size: 0.8em; opacity: 0.7;" } });
+    stat2.createSpan({ text: "Focus time", attr: { style: "font-size: 0.8em; opacity: 0.7;" } });
     stat2.createSpan({ cls: "pomodoro-stat-value", text: `${stats.totalWorkDuration} m` });
   }
 };
@@ -1881,7 +1881,7 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
         input.value = String(val);
       await this.plugin.saveAllData();
     });
-    const shortBreakSetting = new import_obsidian.Setting(containerEl).setName("Short Break").setDesc("Duration of a short break").addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.shortBreakDuration)).onChange(async (value) => {
+    const shortBreakSetting = new import_obsidian.Setting(containerEl).setName("Short break").setDesc("Duration of a short break").addText((text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.shortBreakDuration)).onChange(async (value) => {
       this.plugin.settings.shortBreakDuration = Number(value);
       await this.plugin.saveAllData();
     }));
