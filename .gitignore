@@ -35,3 +35,6 @@ npm-debug.log*
 # Local Obsidian vault test files (Windows/cross-platform)
 *vault*/
 test-vault/
+C:/
+C\:/
+C\\*/

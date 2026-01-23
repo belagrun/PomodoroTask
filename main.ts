@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer, Component } from 'obsidian';
+import { App, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer, Component } from 'obsidian';
 
 // --- DATA MODELS ---
 
@@ -44,23 +44,7 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
 
 // --- SOUNDS ---
 
-const SOUNDS: Record<string, string> = {
-    'none': '',
-    // Short Blip (Start)
-    'blip': 'data:audio/mp3;base64,//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq',
-    // Digital Ding (Success/Work End) - Placeholder simulated with short beep logic for brevity in this example 
-    // In a real scenario I would put a longer base64 here. I will use a generic beep for now to save tokens, 
-    // but imagine these are distinct sounds.
-    'ding': 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
-    // Chime (Break End)
-    'chime': 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
-    // Click (Pause)
-    'click': 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'
-};
-
-// Re-defining with actual short beeps for demo purposes (Empty Base64s above wont play)
-// Using minimal valid WAV headers + silence/noise for demonstration.
-// For production, I will assume the `TimerService` will manage the Audio objects.
+// Sound service uses synthesized tones for different sound types
 
 class SoundService {
     plugin: PomodoroTaskPlugin;
@@ -1014,8 +998,8 @@ export class PomodoroView extends ItemView {
             header.title = "Drag to move • click to toggle";
             header.addClass('pomodoro-draggable');
 
-            const icon = header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
-            const title = header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
+            header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
+            header.createDiv({ cls: 'pomodoro-marker-title', text: 'Markers' });
             
             // Content Area Structure
             widget.createDiv({ cls: 'pomodoro-marker-content' });
@@ -1426,11 +1410,6 @@ export class PomodoroView extends ItemView {
     
     private findValidLineOutsideScriptBlock(lines: string[], targetLine: number): number {
         // Find if targetLine is inside a script block
-        const scriptBlockPatterns = [
-            /^```(?:dataview|dataviewjs|javascript|js|python|bash|sh|shell|css|yaml|json)/i,
-            /^```/
-        ];
-        
         let inScriptBlock = false;
         let scriptBlockStart = -1;
         let scriptBlockEnd = -1;
@@ -1630,7 +1609,7 @@ export class PomodoroView extends ItemView {
 
         // Toggle indicator
         if (state.state === 'WORK') {
-            const toggleIcon = headerControls.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle pomodoro-toggle-icon' });
+            headerControls.createDiv({ text: this.showSubtasks ? '▼' : '▶', cls: 'pomodoro-subtask-toggle pomodoro-toggle-icon' });
         }
 
         header.onclick = () => {
@@ -1968,7 +1947,7 @@ export class PomodoroView extends ItemView {
             // User: "🍅 2/4 a esquerda da pomodoro task... pode ser 🍅:: 1 ou até mesmo não ter nenhuma maça"
             // If match, show it. If not, show generic icon?
             if (tomatoCount) {
-                const countSpan = leftSide.createSpan({ cls: 'pomodoro-task-count-pill', text: tomatoCount });
+                leftSide.createSpan({ cls: 'pomodoro-task-count-pill', text: tomatoCount });
             } else {
                 const icon = leftSide.createDiv({ cls: 'pomodoro-task-icon' });
                 setIcon(icon, 'circle');
@@ -2216,7 +2195,7 @@ export class PomodoroView extends ItemView {
         if (oldStats) oldStats.remove(); // Remove the inline stats if they exist
 
         if (finalTasks.length === 0) {
-            const msgDiv = container.createDiv({
+            container.createDiv({
                 text: "No pending subtasks found below.",
                 cls: 'pomodoro-no-subtasks',
                 attr: { style: 'text-align: center; color: var(--text-muted); font-size: 0.9em; margin-top: 10px;' }
@@ -2560,7 +2539,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        const limitSetting = new Setting(containerEl)
+        new Setting(containerEl)
             .setName('Limit subtasks shown')
             .setDesc('Toggle to limit the number of subtasks displayed in the view')
             .addToggle(toggle => toggle
@@ -2723,7 +2702,7 @@ class RenameModal extends Modal {
         const { contentEl } = this;
         contentEl.createEl("h2", { text: "Rename marker" });
 
-        const textSetting = new Setting(contentEl)
+        new Setting(contentEl)
             .setName("New name")
             .addText((text) => {
                 text

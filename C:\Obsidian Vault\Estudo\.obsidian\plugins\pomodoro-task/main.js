@@ -724,8 +724,8 @@ var PomodoroView = class extends import_obsidian.ItemView {
         };
         header.title = "Drag to move \u2022 click to toggle";
         header.addClass("pomodoro-draggable");
-        const icon = header.createDiv({ cls: "pomodoro-marker-icon", text: "\u{1F3F7}\uFE0F" });
-        const title = header.createDiv({ cls: "pomodoro-marker-title", text: "Markers" });
+        header.createDiv({ cls: "pomodoro-marker-icon", text: "\u{1F3F7}\uFE0F" });
+        header.createDiv({ cls: "pomodoro-marker-title", text: "Markers" });
         widget.createDiv({ cls: "pomodoro-marker-content" });
       }
       if (this.markerWidgetExpanded) {
@@ -1035,10 +1035,6 @@ var PomodoroView = class extends import_obsidian.ItemView {
     }
   }
   findValidLineOutsideScriptBlock(lines, targetLine) {
-    const scriptBlockPatterns = [
-      /^```(?:dataview|dataviewjs|javascript|js|python|bash|sh|shell|css|yaml|json)/i,
-      /^```/
-    ];
     let inScriptBlock = false;
     let scriptBlockStart = -1;
     let scriptBlockEnd = -1;
@@ -1168,7 +1164,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     }
     const headerControls = header.createDiv({ cls: "pomodoro-stats-items-container" });
     if (state.state === "WORK") {
-      const toggleIcon = headerControls.createDiv({ text: this.showSubtasks ? "\u25BC" : "\u25B6", cls: "pomodoro-subtask-toggle pomodoro-toggle-icon" });
+      headerControls.createDiv({ text: this.showSubtasks ? "\u25BC" : "\u25B6", cls: "pomodoro-subtask-toggle pomodoro-toggle-icon" });
     }
     header.onclick = () => {
       if (state.state === "WORK") {
@@ -1408,7 +1404,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       const cleanText = this.cleanTaskText(task.text);
       const leftSide = item.createDiv({ cls: "pomodoro-task-left" });
       if (tomatoCount) {
-        const countSpan = leftSide.createSpan({ cls: "pomodoro-task-count-pill", text: tomatoCount });
+        leftSide.createSpan({ cls: "pomodoro-task-count-pill", text: tomatoCount });
       } else {
         const icon = leftSide.createDiv({ cls: "pomodoro-task-icon" });
         (0, import_obsidian.setIcon)(icon, "circle");
@@ -1570,7 +1566,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     if (oldStats)
       oldStats.remove();
     if (finalTasks.length === 0) {
-      const msgDiv = container.createDiv({
+      container.createDiv({
         text: "No pending subtasks found below.",
         cls: "pomodoro-no-subtasks",
         attr: { style: "text-align: center; color: var(--text-muted); font-size: 0.9em; margin-top: 10px;" }
@@ -1820,7 +1816,7 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.defaultSubtasksExpanded = value;
       await this.plugin.saveAllData();
     }));
-    const limitSetting = new import_obsidian.Setting(containerEl).setName("Limit subtasks shown").setDesc("Toggle to limit the number of subtasks displayed in the view").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableSubtaskLimit).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Limit subtasks shown").setDesc("Toggle to limit the number of subtasks displayed in the view").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableSubtaskLimit).onChange(async (value) => {
       this.plugin.settings.enableSubtaskLimit = value;
       await this.plugin.saveAllData();
       countSetting.settingEl.style.display = value ? "flex" : "none";
@@ -1902,7 +1898,7 @@ var RenameModal = class extends import_obsidian.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.createEl("h2", { text: "Rename marker" });
-    const textSetting = new import_obsidian.Setting(contentEl).setName("New name").addText((text) => {
+    new import_obsidian.Setting(contentEl).setName("New name").addText((text) => {
       text.setValue(this.result).onChange((value) => {
         this.result = value;
       });
