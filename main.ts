@@ -1047,7 +1047,6 @@ export class PomodoroView extends ItemView {
             markers.forEach((m, i) => {
                  const color = this.rainbowColors[i % this.rainbowColors.length];
                  const item = list.createDiv({ cls: 'pomodoro-marker-item' });
-                 item.setCssProps({ '--marker-bg-color': color });
                  item.style.backgroundColor = color;
                  
                  const nameSpan = item.createSpan({ text: m.name, cls: 'pomodoro-marker-item-name' });
