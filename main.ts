@@ -985,7 +985,7 @@ export class PomodoroView extends ItemView {
                 widget.style.top = (initialTop + dy) + 'px';
             };
 
-            const onMouseUp = async () => {
+            const onMouseUp = () => {
                 if (!isDragging) return;
                 isDragging = false;
                 document.removeEventListener('mousemove', onMouseMove);
@@ -994,7 +994,7 @@ export class PomodoroView extends ItemView {
                 // Save position
                 const rect = widget.getBoundingClientRect();
                 this.plugin.settings.markerWidgetPos = { x: rect.left, y: rect.top };
-                await this.plugin.saveAllData();
+                void this.plugin.saveAllData();
             };
 
             header.onclick = (e) => {
@@ -1093,7 +1093,7 @@ export class PomodoroView extends ItemView {
                          this.markerFollowMode.add(m.name);
                      }
                      this.setupScrollHandler(file, container);
-                     this.renderMarkers(container);
+                     void this.renderMarkers(container);
                  };
 
                  const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
@@ -1101,14 +1101,14 @@ export class PomodoroView extends ItemView {
                      e.stopPropagation();
                      const freshLine = await this.findMarkerLine(file, m.name);
                      if (freshLine !== -1) {
-                         new RenameModal(this.plugin.app, m.name, async (newName) => {
+                         new RenameModal(this.plugin.app, m.name, (newName) => {
                              if (newName && newName !== m.name) {
-                                await this.renameMarker(file, freshLine, m.name, newName);
+                                void this.renameMarker(file, freshLine, m.name, newName);
                              }
                          }).open();
                      } else {
                         new Notice("Marker not found.");
-                        this.renderMarkers(container);
+                        void this.renderMarkers(container);
                      }
                  };
 
@@ -1128,7 +1128,8 @@ export class PomodoroView extends ItemView {
 
             // Add Button
             const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
-            addBtn.innerHTML = '<span>➕</span> Add Marker here';
+            addBtn.createSpan({ text: '➕' });
+            addBtn.appendText(' Add Marker here');
             addBtn.onclick = async (e) => {
                  e.stopPropagation();
                  
@@ -1324,15 +1325,17 @@ export class PomodoroView extends ItemView {
             if (scrollTimeout) {
                 window.clearTimeout(scrollTimeout);
             }
-            scrollTimeout = window.setTimeout(async () => {
+            scrollTimeout = window.setTimeout(() => {
                 if (isMovingMarker) return;
                 isMovingMarker = true;
                 
-                try {
-                    await this.moveFollowingMarkers(file, container);
-                } finally {
-                    isMovingMarker = false;
-                }
+                void (async () => {
+                    try {
+                        await this.moveFollowingMarkers(file, container);
+                    } finally {
+                        isMovingMarker = false;
+                    }
+                })();
             }, 100); // Debounce 100ms
         };
         
@@ -2445,10 +2448,7 @@ export default class PomodoroTaskPlugin extends Plugin {
 
         this.registerView(
             POMODORO_VIEW_TYPE,
-            (leaf) => {
-                this.view = new PomodoroView(leaf, this);
-                return this.view;
-            }
+            (leaf) => new PomodoroView(leaf, this)
         );
 
         this.addRibbonIcon('alarm-clock', 'Pomodoro task', (evt: MouseEvent) => {
@@ -2508,7 +2508,7 @@ export default class PomodoroTaskPlugin extends Plugin {
         const leaves = workspace.getLeavesOfType(POMODORO_VIEW_TYPE);
         if (leaves.length > 0) {
             leaf = leaves[0];
-            workspace.revealLeaf(leaf);
+            void workspace.revealLeaf(leaf);
         } else {
             const rightLeaf = workspace.getRightLeaf(false);
             if (rightLeaf) {
@@ -2559,7 +2559,7 @@ class PomodoroSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl('h2', { text: 'Pomodoro settings' });
+        new Setting(containerEl).setName('Pomodoro settings').setHeading();
 
         new Setting(containerEl)
             .setName('Target tag')
@@ -2572,7 +2572,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        containerEl.createEl('h3', { text: 'Durations (minutes)' });
+        new Setting(containerEl).setName('Durations (minutes)').setHeading();
 
         const workSetting = new Setting(containerEl)
             .setName('Work duration')
@@ -2586,11 +2586,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         // Add chips to the main container, so they appear below the setting row
-        this.addDurationChips(containerEl, [1, 5, 10, 15, 20, 25, 30, 45, 60], async (val) => {
+        this.addDurationChips(containerEl, [1, 5, 10, 15, 20, 25, 30, 45, 60], (val) => {
             this.plugin.settings.workDuration = val;
             const input = workSetting.controlEl.querySelector('input');
             if (input) input.value = String(val);
-            await this.plugin.saveAllData();
+            void this.plugin.saveAllData();
         });
 
         const shortBreakSetting = new Setting(containerEl)
@@ -2604,11 +2604,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        this.addDurationChips(containerEl, [1, 2, 3, 5, 10, 15], async (val) => {
+        this.addDurationChips(containerEl, [1, 2, 3, 5, 10, 15], (val) => {
             this.plugin.settings.shortBreakDuration = val;
             const input = shortBreakSetting.controlEl.querySelector('input');
             if (input) input.value = String(val);
-            await this.plugin.saveAllData();
+            void this.plugin.saveAllData();
         });
 
         const longBreakSetting = new Setting(containerEl)
@@ -2622,11 +2622,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        this.addDurationChips(containerEl, [10, 15, 20, 25, 30, 45, 60], async (val) => {
+        this.addDurationChips(containerEl, [10, 15, 20, 25, 30, 45, 60], (val) => {
             this.plugin.settings.longBreakDuration = val;
             const input = longBreakSetting.controlEl.querySelector('input');
             if (input) input.value = String(val);
-            await this.plugin.saveAllData();
+            void this.plugin.saveAllData();
         });
 
 
@@ -2698,7 +2698,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
         todaySetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
 
-        containerEl.createEl('h3', { text: 'Statistics' });
+        new Setting(containerEl).setName('Statistics').setHeading();
 
         new Setting(containerEl)
             .setName('Reset statistics')
@@ -2717,7 +2717,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                     // Force refresh setting tab to show 0 if I were displaying them here, but I'm not.
                 }));
 
-        containerEl.createEl('h3', { text: 'Sounds & notifications' });
+        new Setting(containerEl).setName('Sounds & notifications').setHeading();
 
         new Setting(containerEl)
             .setName('Volume')
