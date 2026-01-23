@@ -4,7 +4,7 @@ A powerful Obsidian plugin that integrates the **Pomodoro Technique** directly w
 
 ![Obsidian](https://img.shields.io/badge/Obsidian-Plugin-blueviolet)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Version](https://img.shields.io/badge/Version-1.0.0-blue)
+![Version](https://img.shields.io/badge/Version-1.0.1-blue)
 
 ---
 
