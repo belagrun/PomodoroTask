@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer, Component } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ItemView, WorkspaceLeaf, TFile, setIcon, moment, MarkdownRenderer, Component, setCssProps } from 'obsidian';
 
 // --- DATA MODELS ---
 
@@ -718,9 +718,9 @@ export class PomodoroView extends ItemView {
     }
 
     getViewType() { return POMODORO_VIEW_TYPE; }
-    getDisplayText() { return "Pomodoro Task"; }
+    getDisplayText() { return "Pomodoro task"; }
 
-    async onOpen() {
+    onOpen() {
         this.contentEl.addEventListener('wheel', (evt: WheelEvent) => {
             if (evt.ctrlKey) {
                 evt.preventDefault();
@@ -745,7 +745,7 @@ export class PomodoroView extends ItemView {
         this.markdownComponents = [];
     }
 
-    async onClose() {
+    onClose() {
          this.clearMarkdownComponents();
          if (this.floatingStats) {
              this.floatingStats.remove();
@@ -793,19 +793,19 @@ export class PomodoroView extends ItemView {
         
         // Recurrence: 🔁 every ... when done (must be before date removal)
         // Matches: "🔁 every day", "🔁 every week", "🔁 every day when done", etc.
-        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/gi, '');
+        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/giu, '');
         
         // On completion action: 🏁 delete
         clean = clean.replace(/🏁\s*delete/gi, '');
         
         // Dates (YYYY-MM-DD): 📅 2023-01-01, ⏳ 2023-01-01, etc.
-        clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, '');
+        clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/gu, '');
         
         // Priorities: 🔺, ⏫, 🔽
-        clean = clean.replace(/[🔺⏫🔽]/g, '');
+        clean = clean.replace(/[🔺⏫🔽]/gu, '');
         
         // Remove standalone symbols if left over
-        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, '');
+        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/gu, '');
 
         // 5. Cleanup extra spaces
         clean = clean.replace(/\s+/g, ' ').trim();
@@ -928,7 +928,7 @@ export class PomodoroView extends ItemView {
         }
 
         // Try to find existing widget in body
-        let widget = parent.querySelector('.pomodoro-marker-widget') as HTMLElement;
+        let widget = parent.querySelector('.pomodoro-marker-widget');
         
         if (!widget) {
             widget = parent.createDiv({ cls: 'pomodoro-marker-widget' });
@@ -1038,7 +1038,7 @@ export class PomodoroView extends ItemView {
         }
 
         // Populate Content
-        const contentArea = widget.querySelector('.pomodoro-marker-content') as HTMLElement;
+        const contentArea = widget.querySelector('.pomodoro-marker-content');
         if (contentArea) {
             contentArea.innerHTML = ''; // Strict clearing using native DOM
 
@@ -1069,9 +1069,9 @@ export class PomodoroView extends ItemView {
                  nameSpan.style.flex = '1';
                  nameSpan.onclick = async () => {
                      // Smart Jump: Find the line freshly to handle text shifts
-                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     const freshLine = await this.findMarkerLine(file, m.name);
                      if (freshLine !== -1) {
-                        void this.jumpToTask(file!.path, freshLine);
+                        void this.jumpToTask(file.path, freshLine);
                      } else {
                         new Notice("Marker not found (deleted?)");
                         void this.renderMarkers(container); // Refresh list
@@ -1085,25 +1085,25 @@ export class PomodoroView extends ItemView {
                      text: isFollowing ? '→' : '📌'
                  });
                  followBtn.title = isFollowing ? 'Following window (click to pin)' : 'Pinned (click to follow window)';
-                 followBtn.onclick = async (e) => {
+                 followBtn.onclick = (e) => {
                      e.stopPropagation();
                      if (this.markerFollowMode.has(m.name)) {
                          this.markerFollowMode.delete(m.name);
                      } else {
                          this.markerFollowMode.add(m.name);
                      }
-                     this.setupScrollHandler(file!, container);
+                     this.setupScrollHandler(file, container);
                      this.renderMarkers(container);
                  };
 
                  const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
                  editBtn.onclick = async (e) => {
                      e.stopPropagation();
-                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     const freshLine = await this.findMarkerLine(file, m.name);
                      if (freshLine !== -1) {
                          new RenameModal(this.plugin.app, m.name, async (newName) => {
                              if (newName && newName !== m.name) {
-                                await this.renameMarker(file!, freshLine, m.name, newName);
+                                await this.renameMarker(file, freshLine, m.name, newName);
                              }
                          }).open();
                      } else {
@@ -1116,9 +1116,9 @@ export class PomodoroView extends ItemView {
                  delBtn.onclick = async (e) => {
                      e.stopPropagation();
                      // Smart Delete: Find line freshly
-                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     const freshLine = await this.findMarkerLine(file, m.name);
                      if (freshLine !== -1) {
-                        await this.deleteMarker(file!, freshLine);
+                        await this.deleteMarker(file, freshLine);
                      }
                  };
             });
@@ -1143,7 +1143,7 @@ export class PomodoroView extends ItemView {
                  // Find the correct leaf for this file (not just "active" which might be lost)
                  let targetLeaf: WorkspaceLeaf | undefined;
                  this.plugin.app.workspace.iterateAllLeaves(leaf => {
-                     if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === file!.path) {
+                     if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === file.path) {
                          targetLeaf = leaf;
                      }
                  });
@@ -1158,7 +1158,7 @@ export class PomodoroView extends ItemView {
                  
                  // Ensure we are in Editing mode
                  if (view.getMode() !== 'source') {
-                     new Notice("Please switch to Editing mode (Live Preview or Source) to add markers contextually.");
+                     new Notice("Please switch to editing mode (Live Preview or Source) to add markers contextually.");
                      // Fallback to appending? Or just stop.
                      return;
                  }
@@ -1221,7 +1221,7 @@ export class PomodoroView extends ItemView {
                      return;
                  }
 
-                 await this.addMarker(file!, calculatedLine);
+                 await this.addMarker(file, calculatedLine);
             };
         }
         } finally {
@@ -1511,7 +1511,7 @@ export class PomodoroView extends ItemView {
         const { state } = this.plugin.timerService;
 
         // Update Label and Styles based on state
-        const label = container.querySelector('.pomodoro-active-task-label') as HTMLElement;
+        const label = container.querySelector('.pomodoro-active-task-label');
         if (label) {
             if (state.pausedTime) {
                 label.innerText = '⏸️ Paused';
@@ -1586,7 +1586,7 @@ export class PomodoroView extends ItemView {
         // Navigation (Back Arrow)
         const backBtn = navBar.createEl('button', { cls: 'clickable-icon pomodoro-back-btn' });
         setIcon(backBtn, 'arrow-left');
-        backBtn.ariaLabel = "Return to Task List";
+        backBtn.ariaLabel = "Return to task list";
         backBtn.onclick = () => this.plugin.timerService.stopSession();
 
         // Style: Plain
@@ -2451,7 +2451,7 @@ export default class PomodoroTaskPlugin extends Plugin {
             }
         );
 
-        this.addRibbonIcon('alarm-clock', 'Pomodoro Task', (evt: MouseEvent) => {
+        this.addRibbonIcon('alarm-clock', 'Pomodoro task', (evt: MouseEvent) => {
             void this.activateView();
         });
 
