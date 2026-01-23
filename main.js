@@ -534,6 +534,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       this.floatingStats.remove();
       this.floatingStats = null;
     }
+    return Promise.resolve();
   }
   clearMarkdownComponents() {
     this.markdownComponents.forEach((c) => {
@@ -554,6 +555,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     }
     this.markerFollowMode.clear();
     this.removeScrollHandler();
+    return Promise.resolve();
   }
   removeScrollHandler() {
     if (this.scrollHandler) {
@@ -573,11 +575,11 @@ var PomodoroView = class extends import_obsidian.ItemView {
     clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, "");
     clean = clean.replace(/#[\p{L}\p{N}_/-]+/gu, "");
     clean = clean.replace(/\[[^\]]+::.*?\]/g, "");
-    clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/gi, "");
-    clean = clean.replace(/🏁\s*delete/gi, "");
-    clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, "");
-    clean = clean.replace(/[🔺⏫🔽]/g, "");
-    clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, "");
+    clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/giu, "");
+    clean = clean.replace(/🏁\s*delete/giu, "");
+    clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/gu, "");
+    clean = clean.replace(/[🔺⏫🔽]/gu, "");
+    clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/gu, "");
     clean = clean.replace(/\s+/g, " ").trim();
     clean = clean.replace(/__CODE_(\d+)__/g, (match, idStr) => {
       const id = parseInt(idStr);
@@ -756,15 +758,16 @@ var PomodoroView = class extends import_obsidian.ItemView {
         if (markers.length === 0) {
           list.createDiv({ text: "No markers", attr: { style: "font-size: 0.8em; color: var(--text-muted); text-align: center;" } });
         }
+        const currentFile = file;
         markers.forEach((m, i) => {
           const color = this.rainbowColors[i % this.rainbowColors.length];
           const item = list.createDiv({ cls: "pomodoro-marker-item" });
           item.style.backgroundColor = color;
           const nameSpan = item.createSpan({ text: m.name, cls: "pomodoro-marker-item-name" });
           nameSpan.onclick = async () => {
-            const freshLine = await this.findMarkerLine(file, m.name);
+            const freshLine = await this.findMarkerLine(currentFile, m.name);
             if (freshLine !== -1) {
-              void this.jumpToTask(file.path, freshLine);
+              void this.jumpToTask(currentFile.path, freshLine);
             } else {
               new import_obsidian.Notice("Marker not found (deleted?)");
               void this.renderMarkers(container);
@@ -776,41 +779,41 @@ var PomodoroView = class extends import_obsidian.ItemView {
             text: isFollowing ? "\u2192" : "\u{1F4CC}"
           });
           followBtn.title = isFollowing ? "Following window (click to pin)" : "Pinned (click to follow window)";
-          followBtn.onclick = async (e) => {
+          followBtn.onclick = (e) => {
             e.stopPropagation();
             if (this.markerFollowMode.has(m.name)) {
               this.markerFollowMode.delete(m.name);
             } else {
               this.markerFollowMode.add(m.name);
             }
-            this.setupScrollHandler(file, container);
-            this.renderMarkers(container);
+            this.setupScrollHandler(currentFile, container);
+            void this.renderMarkers(container);
           };
           const editBtn = item.createSpan({ cls: "pomodoro-marker-edit", text: "\u270E" });
           editBtn.onclick = async (e) => {
             e.stopPropagation();
-            const freshLine = await this.findMarkerLine(file, m.name);
+            const freshLine = await this.findMarkerLine(currentFile, m.name);
             if (freshLine !== -1) {
               new RenameModal(this.plugin.app, m.name, async (newName) => {
                 if (newName && newName !== m.name) {
-                  await this.renameMarker(file, freshLine, m.name, newName);
+                  await this.renameMarker(currentFile, freshLine, m.name, newName);
                 }
               }).open();
             } else {
               new import_obsidian.Notice("Marker not found.");
-              this.renderMarkers(container);
+              void this.renderMarkers(container);
             }
           };
           const delBtn = item.createSpan({ cls: "pomodoro-marker-delete", text: "\u2716" });
           delBtn.onclick = async (e) => {
             e.stopPropagation();
-            const freshLine = await this.findMarkerLine(file, m.name);
+            const freshLine = await this.findMarkerLine(currentFile, m.name);
             if (freshLine !== -1) {
-              await this.deleteMarker(file, freshLine);
+              await this.deleteMarker(currentFile, freshLine);
             }
           };
         });
-        this.setupScrollHandler(file, container);
+        this.setupScrollHandler(currentFile, container);
         const addBtn = contentArea.createDiv({ cls: "pomodoro-marker-add-btn" });
         addBtn.createSpan({ text: "\u2795" });
         addBtn.createSpan({ text: " Add marker here" });
@@ -824,7 +827,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
           const targetY = headerRect.top + headerRect.height / 2;
           let targetLeaf;
           this.plugin.app.workspace.iterateAllLeaves((leaf) => {
-            if (leaf.view instanceof import_obsidian.MarkdownView && leaf.view.file && leaf.view.file.path === file.path) {
+            if (leaf.view instanceof import_obsidian.MarkdownView && leaf.view.file && leaf.view.file.path === currentFile.path) {
               targetLeaf = leaf;
             }
           });
@@ -841,8 +844,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
           const cmEditor = view.editor.cm;
           let detectedPos = null;
           if (cmEditor && parentWidget instanceof HTMLElement) {
-            const originalDisplay = parentWidget.style.display;
-            parentWidget.style.display = "none";
+            parentWidget.addClass("pomodoro-hidden");
             try {
               const xCandidates = [
                 contentRect.left + contentRect.width * 0.1 + 20,
@@ -865,7 +867,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
             } catch (err) {
               console.warn("Marker hit-test failed:", err);
             } finally {
-              parentWidget.style.display = originalDisplay;
+              parentWidget.removeClass("pomodoro-hidden");
             }
           }
           let calculatedLine = -1;
@@ -879,7 +881,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
             new import_obsidian.Notice("Could not determine line position. Is the widget aligned with text?");
             return;
           }
-          await this.addMarker(file, calculatedLine);
+          await this.addMarker(currentFile, calculatedLine);
         };
       }
     } finally {
@@ -1000,8 +1002,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       return;
     let detectedLine = -1;
     const widgetEl = widget;
-    const originalDisplay = widgetEl.style.display;
-    widgetEl.style.display = "none";
+    widgetEl.addClass("pomodoro-hidden");
     try {
       const xCandidates = [
         contentRect.left + contentRect.width * 0.1 + 20,
@@ -1022,7 +1023,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
           }
         }
     } finally {
-      widgetEl.style.display = originalDisplay;
+      widgetEl.removeClass("pomodoro-hidden");
     }
     if (detectedLine === -1)
       return;
@@ -1768,12 +1769,12 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Pomodoro settings" });
+    new import_obsidian.Setting(containerEl).setName("Pomodoro settings").setHeading();
     new import_obsidian.Setting(containerEl).setName("Target tag").setDesc("Tasks with this tag will appear in the pomodoro panel").addText((text) => text.setPlaceholder("#pomodoro").setValue(this.plugin.settings.tag).onChange(async (value) => {
       this.plugin.settings.tag = value;
       await this.plugin.saveAllData();
     }));
-    containerEl.createEl("h3", { text: "Durations (minutes)" });
+    new import_obsidian.Setting(containerEl).setName("Durations (minutes)").setHeading();
     const workSetting = new import_obsidian.Setting(containerEl).setName("Work duration").setDesc("How long is a focus session?").addText((text) => text.setPlaceholder("25").setValue(String(this.plugin.settings.workDuration)).onChange(async (value) => {
       this.plugin.settings.workDuration = Number(value);
       await this.plugin.saveAllData();
@@ -1818,8 +1819,13 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Limit subtasks shown").setDesc("Toggle to limit the number of subtasks displayed in the view").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableSubtaskLimit).onChange(async (value) => {
       this.plugin.settings.enableSubtaskLimit = value;
       await this.plugin.saveAllData();
-      countSetting.settingEl.style.display = value ? "flex" : "none";
-      todaySetting.settingEl.style.display = value ? "flex" : "none";
+      if (value) {
+        countSetting.settingEl.removeClass("pomodoro-hidden");
+        todaySetting.settingEl.removeClass("pomodoro-hidden");
+      } else {
+        countSetting.settingEl.addClass("pomodoro-hidden");
+        todaySetting.settingEl.addClass("pomodoro-hidden");
+      }
     }));
     const countSetting = new import_obsidian.Setting(containerEl).setName("Max subtasks").setDesc("Maximum number of subtasks to show").addText((text) => text.setPlaceholder("3").setValue(String(this.plugin.settings.subtaskCount)).onChange(async (value) => {
       this.plugin.settings.subtaskCount = Number(value);
@@ -1833,9 +1839,11 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.showCompletedToday = value;
       await this.plugin.saveAllData();
     }));
-    countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? "flex" : "none";
-    todaySetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? "flex" : "none";
-    containerEl.createEl("h3", { text: "Statistics" });
+    if (!this.plugin.settings.enableSubtaskLimit) {
+      countSetting.settingEl.addClass("pomodoro-hidden");
+      todaySetting.settingEl.addClass("pomodoro-hidden");
+    }
+    new import_obsidian.Setting(containerEl).setName("Statistics").setHeading();
     new import_obsidian.Setting(containerEl).setName("Reset statistics").setDesc("Resets the total cycles and focus time counters.").addButton((button) => button.setButtonText("Reset stats").setWarning().onClick(async () => {
       this.plugin.stats = {
         completedSessions: 0,
@@ -1845,7 +1853,7 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
       void this.plugin.refreshView();
       new import_obsidian.Notice("Pomodoro statistics have been reset.");
     }));
-    containerEl.createEl("h3", { text: "Sounds & notifications" });
+    new import_obsidian.Setting(containerEl).setName("Sounds & notifications").setHeading();
     new import_obsidian.Setting(containerEl).setName("Volume").setDesc("Global volume for all sounds (0-100)").addSlider((slider) => slider.setLimits(0, 100, 5).setValue(this.plugin.settings.volume).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.volume = value;
       await this.plugin.saveAllData();

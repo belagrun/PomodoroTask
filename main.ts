@@ -704,7 +704,7 @@ export class PomodoroView extends ItemView {
     getViewType() { return POMODORO_VIEW_TYPE; }
     getDisplayText() { return "Pomodoro task"; }
 
-    async onOpen() {
+    async onOpen(): Promise<void> {
         this.contentEl.addEventListener('wheel', (evt: WheelEvent) => {
             if (evt.ctrlKey) {
                 evt.preventDefault();
@@ -719,6 +719,8 @@ export class PomodoroView extends ItemView {
             this.floatingStats.remove();
             this.floatingStats = null;
         }
+        
+        return Promise.resolve();
     }
 
     private clearMarkdownComponents() {
@@ -729,7 +731,7 @@ export class PomodoroView extends ItemView {
         this.markdownComponents = [];
     }
 
-    async onClose() {
+    async onClose(): Promise<void> {
          this.clearMarkdownComponents();
          if (this.floatingStats) {
              this.floatingStats.remove();
@@ -743,6 +745,8 @@ export class PomodoroView extends ItemView {
          // Clear follow mode and scroll handler
          this.markerFollowMode.clear();
          this.removeScrollHandler();
+         
+         return Promise.resolve();
     }
 
     private removeScrollHandler() {
@@ -777,19 +781,19 @@ export class PomodoroView extends ItemView {
         
         // Recurrence: 🔁 every ... when done (must be before date removal)
         // Matches: "🔁 every day", "🔁 every week", "🔁 every day when done", etc.
-        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/gi, '');
+        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/giu, '');
         
         // On completion action: 🏁 delete
-        clean = clean.replace(/🏁\s*delete/gi, '');
+        clean = clean.replace(/🏁\s*delete/giu, '');
         
         // Dates (YYYY-MM-DD): 📅 2023-01-01, ⏳ 2023-01-01, etc.
-        clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/g, '');
+        clean = clean.replace(/[📅⏳🛫✅➕]\s*\d{4}-\d{2}-\d{2}/gu, '');
         
         // Priorities: 🔺, ⏫, 🔽
-        clean = clean.replace(/[🔺⏫🔽]/g, '');
+        clean = clean.replace(/[🔺⏫🔽]/gu, '');
         
         // Remove standalone symbols if left over
-        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/g, '');
+        clean = clean.replace(/[🔁🏁📅⏳🛫✅➕]/gu, '');
 
         // 5. Cleanup extra spaces
         clean = clean.replace(/\s+/g, ' ').trim();
@@ -1044,6 +1048,9 @@ export class PomodoroView extends ItemView {
                  list.createDiv({ text: "No markers", attr: { style: 'font-size: 0.8em; color: var(--text-muted); text-align: center;' }});
             }
 
+            // Capture file reference for use in callbacks (file is guaranteed non-null at this point)
+            const currentFile = file;
+
             markers.forEach((m, i) => {
                  const color = this.rainbowColors[i % this.rainbowColors.length];
                  const item = list.createDiv({ cls: 'pomodoro-marker-item' });
@@ -1052,9 +1059,9 @@ export class PomodoroView extends ItemView {
                  const nameSpan = item.createSpan({ text: m.name, cls: 'pomodoro-marker-item-name' });
                  nameSpan.onclick = async () => {
                      // Smart Jump: Find the line freshly to handle text shifts
-                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     const freshLine = await this.findMarkerLine(currentFile, m.name);
                      if (freshLine !== -1) {
-                        void this.jumpToTask(file!.path, freshLine);
+                        void this.jumpToTask(currentFile.path, freshLine);
                      } else {
                         new Notice("Marker not found (deleted?)");
                         void this.renderMarkers(container); // Refresh list
@@ -1068,30 +1075,30 @@ export class PomodoroView extends ItemView {
                      text: isFollowing ? '→' : '📌'
                  });
                  followBtn.title = isFollowing ? 'Following window (click to pin)' : 'Pinned (click to follow window)';
-                 followBtn.onclick = async (e) => {
+                 followBtn.onclick = (e) => {
                      e.stopPropagation();
                      if (this.markerFollowMode.has(m.name)) {
                          this.markerFollowMode.delete(m.name);
                      } else {
                          this.markerFollowMode.add(m.name);
                      }
-                     this.setupScrollHandler(file!, container);
-                     this.renderMarkers(container);
+                     this.setupScrollHandler(currentFile, container);
+                     void this.renderMarkers(container);
                  };
 
                  const editBtn = item.createSpan({ cls: 'pomodoro-marker-edit', text: '✎' });
                  editBtn.onclick = async (e) => {
                      e.stopPropagation();
-                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     const freshLine = await this.findMarkerLine(currentFile, m.name);
                      if (freshLine !== -1) {
                          new RenameModal(this.plugin.app, m.name, async (newName) => {
                              if (newName && newName !== m.name) {
-                                await this.renameMarker(file!, freshLine, m.name, newName);
+                                await this.renameMarker(currentFile, freshLine, m.name, newName);
                              }
                          }).open();
                      } else {
                         new Notice("Marker not found.");
-                        this.renderMarkers(container);
+                        void this.renderMarkers(container);
                      }
                  };
 
@@ -1099,15 +1106,15 @@ export class PomodoroView extends ItemView {
                  delBtn.onclick = async (e) => {
                      e.stopPropagation();
                      // Smart Delete: Find line freshly
-                     const freshLine = await this.findMarkerLine(file!, m.name);
+                     const freshLine = await this.findMarkerLine(currentFile, m.name);
                      if (freshLine !== -1) {
-                        await this.deleteMarker(file!, freshLine);
+                        await this.deleteMarker(currentFile, freshLine);
                      }
                  };
             });
             
             // Setup scroll handler for following markers
-            this.setupScrollHandler(file, container);
+            this.setupScrollHandler(currentFile, container);
 
             // Add Button
             const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
@@ -1127,7 +1134,7 @@ export class PomodoroView extends ItemView {
                  // Find the correct leaf for this file (not just "active" which might be lost)
                  let targetLeaf: WorkspaceLeaf | undefined;
                  this.plugin.app.workspace.iterateAllLeaves(leaf => {
-                     if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === file!.path) {
+                     if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === currentFile.path) {
                          targetLeaf = leaf;
                      }
                  });
@@ -1154,9 +1161,8 @@ export class PomodoroView extends ItemView {
                  let detectedPos = null;
 
                  if (cmEditor && parentWidget instanceof HTMLElement) {
-                     // 1. Temporarily hide the widget
-                     const originalDisplay = parentWidget.style.display;
-                     parentWidget.style.display = 'none';
+                     // 1. Temporarily hide the widget using CSS class
+                     parentWidget.addClass('pomodoro-hidden');
 
                      try {
                          // 2. Grid Search Strategy using CodeMirror 6 API
@@ -1187,7 +1193,7 @@ export class PomodoroView extends ItemView {
                      } catch (err) {
                          console.warn("Marker hit-test failed:", err);
                      } finally {
-                         parentWidget.style.display = originalDisplay;
+                         parentWidget.removeClass('pomodoro-hidden');
                      }
                  }
 
@@ -1205,7 +1211,7 @@ export class PomodoroView extends ItemView {
                      return;
                  }
 
-                 await this.addMarker(file!, calculatedLine);
+                 await this.addMarker(currentFile, calculatedLine);
             };
         }
         } finally {
@@ -1359,10 +1365,9 @@ export class PomodoroView extends ItemView {
         // Calculate the target line based on widget Y position
         let detectedLine = -1;
         
-        // Temporarily hide widget to avoid hit-testing issues
+        // Temporarily hide widget to avoid hit-testing issues using CSS class
         const widgetEl = widget as HTMLElement;
-        const originalDisplay = widgetEl.style.display;
-        widgetEl.style.display = 'none';
+        widgetEl.addClass('pomodoro-hidden');
         
         try {
             const xCandidates = [
@@ -1389,7 +1394,7 @@ export class PomodoroView extends ItemView {
                 }
             }
         } finally {
-            widgetEl.style.display = originalDisplay;
+            widgetEl.removeClass('pomodoro-hidden');
         }
         
         if (detectedLine === -1) return;
@@ -2447,7 +2452,10 @@ class PomodoroSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl('h2', { text: 'Pomodoro settings' });
+        
+        new Setting(containerEl)
+            .setName('Pomodoro settings')
+            .setHeading();
 
         new Setting(containerEl)
             .setName('Target tag')
@@ -2460,7 +2468,9 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        containerEl.createEl('h3', { text: 'Durations (minutes)' });
+        new Setting(containerEl)
+            .setName('Durations (minutes)')
+            .setHeading();
 
         const workSetting = new Setting(containerEl)
             .setName('Work duration')
@@ -2546,9 +2556,14 @@ class PomodoroSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.enableSubtaskLimit = value;
                     await this.plugin.saveAllData();
-                    // Update visibility of the count setting
-                    countSetting.settingEl.style.display = value ? 'flex' : 'none';
-                    todaySetting.settingEl.style.display = value ? 'flex' : 'none';
+                    // Update visibility of the count setting using CSS class
+                    if (value) {
+                        countSetting.settingEl.removeClass('pomodoro-hidden');
+                        todaySetting.settingEl.removeClass('pomodoro-hidden');
+                    } else {
+                        countSetting.settingEl.addClass('pomodoro-hidden');
+                        todaySetting.settingEl.addClass('pomodoro-hidden');
+                    }
                 }));
 
         const countSetting = new Setting(containerEl)
@@ -2582,11 +2597,15 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        // Initial visibility
-        countSetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
-        todaySetting.settingEl.style.display = this.plugin.settings.enableSubtaskLimit ? 'flex' : 'none';
+        // Initial visibility using CSS class
+        if (!this.plugin.settings.enableSubtaskLimit) {
+            countSetting.settingEl.addClass('pomodoro-hidden');
+            todaySetting.settingEl.addClass('pomodoro-hidden');
+        }
 
-        containerEl.createEl('h3', { text: 'Statistics' });
+        new Setting(containerEl)
+            .setName('Statistics')
+            .setHeading();
 
         new Setting(containerEl)
             .setName('Reset statistics')
@@ -2605,7 +2624,9 @@ class PomodoroSettingTab extends PluginSettingTab {
                     // Force refresh setting tab to show 0 if I were displaying them here, but I'm not.
                 }));
 
-        containerEl.createEl('h3', { text: 'Sounds & notifications' });
+        new Setting(containerEl)
+            .setName('Sounds & notifications')
+            .setHeading();
 
         new Setting(containerEl)
             .setName('Volume')
