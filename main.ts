@@ -86,10 +86,10 @@ class SoundService {
     }
 
     playTone(type: string, volume: number) {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContext) return;
+        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextClass) return;
 
-        const ctx = new AudioContext();
+        const ctx = new AudioContextClass();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
@@ -281,7 +281,7 @@ class TimerService {
         taskText: '',
         completedSubtasks: []
     };
-    intervalId: any;
+    intervalId: NodeJS.Timeout | null = null;
 
     constructor(plugin: PomodoroTaskPlugin) {
         this.plugin = plugin;
@@ -336,9 +336,9 @@ class TimerService {
             this.state.pausedTime = Date.now();
         }
 
-        this.saveState();
+        void this.saveState();
         this.startTick();
-        this.plugin.refreshView();
+        void this.plugin.refreshView();
     }
 
     stopSession() {
@@ -354,8 +354,8 @@ class TimerService {
             taskText: '',
             pausedTime: null
         };
-        this.saveState();
-        this.plugin.refreshView();
+        void this.saveState();
+        void this.plugin.refreshView();
     }
 
     pauseSession() {
@@ -363,8 +363,8 @@ class TimerService {
             this.state.pausedTime = Date.now();
             this.clearInterval();
             this.soundService.play(this.plugin.settings.soundPause);
-            this.saveState();
-            this.plugin.refreshView();
+            void this.saveState();
+            void this.plugin.refreshView();
         }
     }
 
@@ -373,9 +373,9 @@ class TimerService {
             const pauseDuration = Date.now() - this.state.pausedTime;
             this.state.startTime += pauseDuration;
             this.state.pausedTime = null;
-            this.saveState();
+            void this.saveState();
             this.startTick();
-            this.plugin.refreshView();
+            void this.plugin.refreshView();
         }
     }
 
@@ -386,7 +386,7 @@ class TimerService {
         this.intervalId = setInterval(() => {
             const timeLeft = this.getTimeLeft();
             if (timeLeft <= 0) {
-                this.completeSession();
+                void this.completeSession();
             }
             // Update UI every second
             this.plugin.updateTimerUI();
@@ -409,8 +409,8 @@ class TimerService {
         }
 
         // Save and refresh
-        this.saveState();
-        this.plugin.refreshView();
+        void this.saveState();
+        void this.plugin.refreshView();
         this.plugin.updateTimerUI();
     }
 
@@ -419,9 +419,9 @@ class TimerService {
         if (this.state.state !== 'IDLE') {
             this.state.startTime = Date.now();
             this.state.pausedTime = null;
-            this.saveState();
+            void this.saveState();
             this.startTick();
-            this.plugin.refreshView();
+            void this.plugin.refreshView();
             this.plugin.updateTimerUI(); // Force immediate update of digits
         }
     }
@@ -476,7 +476,7 @@ class TimerService {
             this.plugin.stats.totalWorkDuration += this.state.duration;
             await this.plugin.saveAllData();
 
-            new Notice("Pomodoro Finished! Time for a break.");
+            new Notice("Pomodoro finished! Time for a break.");
 
             this.stopSession();
 
@@ -506,7 +506,7 @@ class TimerService {
                 this.soundService.play(this.plugin.settings.soundBreakEnd);
             }
 
-            new Notice("Break Finished! Ready to work?");
+            new Notice("Break finished! Ready to work?");
             this.stopSession();
         }
     }
@@ -593,7 +593,7 @@ class CycleConfigModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
 
-        contentEl.createEl('h3', { text: 'Cycle Configuration', attr: { style: 'text-align: center; margin-bottom: 20px;' } });
+        contentEl.createEl('h3', { text: 'Cycle configuration', attr: { style: 'text-align: center; margin-bottom: 20px;' } });
 
         const container = contentEl.createDiv({ cls: 'pomodoro-config-modal-container' });
 
@@ -609,7 +609,7 @@ class CycleConfigModal extends Modal {
 
         // Footer
         const footer = contentEl.createDiv({ attr: { style: 'margin-top: 20px; display: flex; justify-content: center;' } });
-        const applyBtn = footer.createEl('button', { text: 'Apply Changes', cls: 'mod-cta pomodoro-apply-btn' });
+        const applyBtn = footer.createEl('button', { text: 'Apply changes', cls: 'mod-cta pomodoro-apply-btn' });
         applyBtn.onclick = () => {
             this.plugin.timerService.applyOverrides(this.workDuration, this.shortBreakDuration);
             this.close();
@@ -674,7 +674,7 @@ class CycleConfigModal extends Modal {
         const chipContainer = container.createDiv({ cls: 'pomodoro-duration-chips' });
         // Force it to break into new line? 'justify-content: flex-end' in CSS handles alignment.
         // But to put it *under*, we might need the parent to wrap.
-        container.style.flexWrap = 'wrap';
+        container.setCssProps({ flexWrap: 'wrap' });
 
         presets.forEach(val => {
             const chip = chipContainer.createEl('button', { text: String(val), cls: 'pomodoro-chip' });
@@ -783,7 +783,7 @@ export class PomodoroView extends ItemView {
         clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, '');
 
         // 2. Remove Tags (#tag, #tag/subtag) - includes Unicode letters for accented chars
-        clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, '');
+        clean = clean.replace(/#[\p{L}\p{N}_/-]+/gu, '');
 
         // 3. Remove Dataview fields
         clean = clean.replace(/\[[^\]]+::.*?\]/g, '');
@@ -834,7 +834,7 @@ export class PomodoroView extends ItemView {
         clean = clean.replace(/\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/g, '');
 
         // 2. Remove Tags (#tag, #tag/subtag) - includes Unicode letters for accented chars
-        clean = clean.replace(/#[\p{L}\p{N}_\/-]+/gu, '');
+        clean = clean.replace(/#[\p{L}\p{N}_/-]+/gu, '');
 
         // 3. Remove Dataview fields
         clean = clean.replace(/\[[^\]]+::.*?\]/g, '');
@@ -869,7 +869,7 @@ export class PomodoroView extends ItemView {
         if (state.state !== 'IDLE' && hasTimerView) {
             this.updateTimer(container);
             // Ensure markers are re-rendered/checked in case file changed
-            this.renderMarkers(container);
+            void this.renderMarkers(container);
         } else {
             // Clean up global float if entering IDLE or non-timer state
             if (state.state === 'IDLE' && this.floatingStats) {
@@ -883,11 +883,11 @@ export class PomodoroView extends ItemView {
             container.addClass('pomodoro-view-container');
 
             if (state.state !== 'IDLE') {
-                this.renderTimer(container);
-                this.renderMarkers(container);
+                void this.renderTimer(container);
+                void this.renderMarkers(container);
             } else {
                 this.renderStats(container);
-                this.renderTaskList(container, currentRenderId);
+                void this.renderTaskList(container, currentRenderId);
             }
         }
     }
@@ -1006,12 +1006,12 @@ export class PomodoroView extends ItemView {
                     if (!this.markerWidgetExpanded) {
                         this.resetFollowModeOnCollapse();
                     }
-                    this.renderMarkers(container); // Re-render to update classes
+                    void this.renderMarkers(container); // Re-render to update classes
                 }
             };
             
             // Add tooltip to explain it is draggable or fixed
-            header.title = "Drag to move • Click to toggle";
+            header.title = "Drag to move • click to toggle";
             header.style.cursor = "move"; // Indicate draggable
 
             const icon = header.createDiv({ cls: 'pomodoro-marker-icon', text: '🏷️' });
@@ -1071,10 +1071,10 @@ export class PomodoroView extends ItemView {
                      // Smart Jump: Find the line freshly to handle text shifts
                      const freshLine = await this.findMarkerLine(file!, m.name);
                      if (freshLine !== -1) {
-                        this.jumpToTask(file!.path, freshLine);
+                        void this.jumpToTask(file!.path, freshLine);
                      } else {
                         new Notice("Marker not found (deleted?)");
-                        this.renderMarkers(container); // Refresh list
+                        void this.renderMarkers(container); // Refresh list
                      }
                  };
 
@@ -1514,11 +1514,11 @@ export class PomodoroView extends ItemView {
         const label = container.querySelector('.pomodoro-active-task-label') as HTMLElement;
         if (label) {
             if (state.pausedTime) {
-                label.innerText = '⏸️ PAUSED';
+                label.innerText = '⏸️ Paused';
                 label.style.opacity = '1.0';
                 label.style.color = 'var(--text-warning)';
             } else {
-                label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
+                label.innerText = state.state === 'WORK' ? '⚠️ Focusing on' : '☕ Taking a break';
                 label.style.opacity = '';
                 label.style.color = '';
             }
@@ -1543,14 +1543,14 @@ export class PomodoroView extends ItemView {
                 pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
             }
 
-            const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / Cancel' });
+            const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop / cancel' });
             stopBtn.onclick = () => this.plugin.timerService.stopSession();
         }
 
         // Update Cycle Info
         const cycleInfo = container.querySelector('.pomodoro-cycle-info');
         if (cycleInfo) {
-            this.populateCycleInfo(cycleInfo);
+            void this.populateCycleInfo(cycleInfo);
         }
 
         // Update Subtasks Logic
@@ -1563,7 +1563,7 @@ export class PomodoroView extends ItemView {
             // If list exists, we call renderSubtasks which will now be smart enough to replace it (see next edit) 
             // OR we can just assume for Pause/Resume validation that we don't need to refresh.
             // However, to be fully correct, let's allow refresh but in a non-flickering way.
-            this.renderSubtasks(view);
+            void this.renderSubtasks(view);
         } else {
             // Remove if they exist and shouldn't
             if (existingList) existingList.remove();
@@ -1656,11 +1656,11 @@ export class PomodoroView extends ItemView {
         const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
 
         if (state.pausedTime) {
-            label.innerText = '⏸️ PAUSED';
+            label.innerText = '⏸️ Paused';
             label.style.opacity = '1.0';
             label.style.color = 'var(--text-warning)';
         } else {
-            label.innerText = state.state === 'WORK' ? '⚠️ FOCUSING ON' : '☕ TAKING A BREAK';
+            label.innerText = state.state === 'WORK' ? '⚠️ Focusing on' : '☕ Taking a break';
         }
 
         // Right side container for Toggle only
@@ -1700,7 +1700,7 @@ export class PomodoroView extends ItemView {
         // Check if text contains Dataview scripts
         const hasDataviewScript = /`\$=/.test(cleanedText);
         
-        MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, textComp).then(() => {
+        void MarkdownRenderer.render(this.plugin.app, cleanedText, textDiv, state.taskFile, textComp).then(() => {
             if (!hasDataviewScript) {
                 textDiv.style.display = '';
                 return;
@@ -1740,7 +1740,7 @@ export class PomodoroView extends ItemView {
         linkBtn.title = "Go to task";
         linkBtn.onclick = (e) => {
             e.stopPropagation();
-            this.jumpToTask(state.taskFile, state.taskLine);
+            void this.jumpToTask(state.taskFile, state.taskLine);
         };
 
         // Timer Display
@@ -1753,7 +1753,7 @@ export class PomodoroView extends ItemView {
 
         // Cycle Info container - create synchronously, populate async
         const cycleInfoContainer = view.createDiv({ cls: 'pomodoro-cycle-info' });
-        this.populateCycleInfo(cycleInfoContainer);
+        void this.populateCycleInfo(cycleInfoContainer);
 
         // Controls
         const controls = view.createDiv({ cls: 'pomodoro-controls' });
@@ -1794,7 +1794,7 @@ export class PomodoroView extends ItemView {
 
         // Subtasks Section
         if (state.state === 'WORK' && this.showSubtasks) {
-            this.renderSubtasks(view);
+            void this.renderSubtasks(view);
         }
     }
 
@@ -1846,7 +1846,7 @@ export class PomodoroView extends ItemView {
             // No counter yet
             valueSpan.innerText = '--';
             valueSpan.style.cursor = 'pointer';
-            valueSpan.title = "Click to set Pomodoro goal";
+            valueSpan.title = "Click to set pomodoro goal";
 
             valueSpan.onclick = (e) => {
                 e.preventDefault();
@@ -1940,7 +1940,7 @@ export class PomodoroView extends ItemView {
         header.style.justifyContent = 'space-between';
         header.style.alignItems = 'center';
 
-        header.createEl('h4', { text: '🎯 Active Tasks' });
+        header.createEl('h4', { text: '🎯 Active tasks' });
 
         const controls = header.createDiv({ attr: { style: 'display: flex; gap: 6px; align-items: center;' } });
 
@@ -1959,11 +1959,11 @@ export class PomodoroView extends ItemView {
 
         const refreshBtn = controls.createEl('button');
         refreshBtn.addClass('clickable-icon');
-        refreshBtn.ariaLabel = 'Refresh List';
+        refreshBtn.ariaLabel = 'Refresh list';
         refreshBtn.style.display = 'flex';
         refreshBtn.style.alignItems = 'center';
         setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.onclick = () => this.render();
+        refreshBtn.onclick = () => void this.render();
 
         // Get active file
         let file = this.plugin.app.workspace.getActiveFile();
@@ -2064,7 +2064,7 @@ export class PomodoroView extends ItemView {
             // Check if text contains Dataview scripts
             const hasDataviewScript = /`\$=/.test(cleanText);
             
-            MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, cleanComp).then(() => {
+            void MarkdownRenderer.render(this.plugin.app, cleanText, cleanSpan, file.path, cleanComp).then(() => {
                 if (!hasDataviewScript) {
                     // No Dataview, show immediately
                     cleanSpan.style.display = '';
@@ -2108,7 +2108,7 @@ export class PomodoroView extends ItemView {
             
             const hoverHasDataview = /`\$=/.test(hoverText);
             
-            MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, hoverComp).then(() => {
+            void MarkdownRenderer.render(this.plugin.app, hoverText, fullSpan, file.path, hoverComp).then(() => {
                 if (!hoverHasDataview) {
                     fullSpan.style.display = '';
                     return;
@@ -2330,7 +2330,7 @@ export class PomodoroView extends ItemView {
             // Check if text contains Dataview scripts
             const hasDataviewScript = /`\$=/.test(task.text);
             
-            MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, textComp).then(() => {
+            void MarkdownRenderer.render(this.plugin.app, task.text, textDiv, file.path, textComp).then(() => {
                 if (!hasDataviewScript) {
                     textDiv.style.display = '';
                     return;
@@ -2452,22 +2452,22 @@ export default class PomodoroTaskPlugin extends Plugin {
         );
 
         this.addRibbonIcon('alarm-clock', 'Pomodoro Task', (evt: MouseEvent) => {
-            this.activateView();
+            void this.activateView();
         });
 
         this.addCommand({
             id: 'open-pomodoro-view',
-            name: 'Open View',
+            name: 'Open view',
             callback: () => {
-                this.activateView();
+                void this.activateView();
             }
         });
 
         this.addSettingTab(new PomodoroSettingTab(this.app, this));
 
         // Event Listeners
-        this.registerEvent(this.app.workspace.on('file-open', () => this.refreshView()));
-        this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.refreshView()));
+        this.registerEvent(this.app.workspace.on('file-open', () => void this.refreshView()));
+        this.registerEvent(this.app.workspace.on('active-leaf-change', () => void this.refreshView()));
         this.registerEvent(this.app.vault.on('modify', (file) => {
             const activeFile = this.app.workspace.getActiveFile();
             if (activeFile && file.path === activeFile.path) {
@@ -2513,7 +2513,7 @@ export default class PomodoroTaskPlugin extends Plugin {
             const rightLeaf = workspace.getRightLeaf(false);
             if (rightLeaf) {
                 await rightLeaf.setViewState({ type: POMODORO_VIEW_TYPE, active: true });
-                workspace.revealLeaf(rightLeaf);
+                void workspace.revealLeaf(rightLeaf);
             }
         }
     }
@@ -2559,11 +2559,11 @@ class PomodoroSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl('h2', { text: 'Pomodoro Settings' });
+        containerEl.createEl('h2', { text: 'Pomodoro settings' });
 
         new Setting(containerEl)
-            .setName('Target Tag')
-            .setDesc('Tasks with this tag will appear in the Pomodoro panel')
+            .setName('Target tag')
+            .setDesc('Tasks with this tag will appear in the pomodoro panel')
             .addText(text => text
                 .setPlaceholder('#pomodoro')
                 .setValue(this.plugin.settings.tag)
@@ -2575,7 +2575,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         containerEl.createEl('h3', { text: 'Durations (minutes)' });
 
         const workSetting = new Setting(containerEl)
-            .setName('Work Duration')
+            .setName('Work duration')
             .setDesc('How long is a focus session?')
             .addText(text => text
                 .setPlaceholder('25')
@@ -2612,7 +2612,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         });
 
         const longBreakSetting = new Setting(containerEl)
-            .setName('Long Break')
+            .setName('Long break')
             .setDesc('Duration of a long break')
             .addText(text => text
                 .setPlaceholder('15')
@@ -2631,8 +2631,8 @@ class PomodoroSettingTab extends PluginSettingTab {
 
 
         new Setting(containerEl)
-            .setName('Start Cycle Paused')
-            .setDesc('If enabled, new sessions will start in a paused state, waiting for you to click Resume.')
+            .setName('Start cycle paused')
+            .setDesc('If enabled, new sessions will start in a paused state, waiting for you to click resume.')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.autoStartPaused)
                 .onChange(async (value) => {
@@ -2641,7 +2641,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Default Subtasks Expanded')
+            .setName('Default subtasks expanded')
             .setDesc('Should subtasks be visible by default when starting a task?')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.defaultSubtasksExpanded)
@@ -2651,7 +2651,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         const limitSetting = new Setting(containerEl)
-            .setName('Limit Subtasks Shown')
+            .setName('Limit subtasks shown')
             .setDesc('Toggle to limit the number of subtasks displayed in the view')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.enableSubtaskLimit)
@@ -2664,7 +2664,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         const countSetting = new Setting(containerEl)
-            .setName('Max Subtasks')
+            .setName('Max subtasks')
             .setDesc('Maximum number of subtasks to show')
             .addText(text => text
                 .setPlaceholder('3')
@@ -2675,7 +2675,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Show Completed Subtasks')
+            .setName('Show completed subtasks')
             .setDesc('If enabled, completed subtasks will be displayed after pending ones')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.showCompletedSubtasks)
@@ -2685,7 +2685,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         const todaySetting = new Setting(containerEl)
-            .setName('Always Show Completed Today')
+            .setName('Always show completed today')
             .setDesc('If enabled, tasks completed today will be shown even if the limit is exceeded')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.showCompletedToday)
@@ -2701,10 +2701,10 @@ class PomodoroSettingTab extends PluginSettingTab {
         containerEl.createEl('h3', { text: 'Statistics' });
 
         new Setting(containerEl)
-            .setName('Reset Statistics')
+            .setName('Reset statistics')
             .setDesc('Resets the total cycles and focus time counters.')
             .addButton(button => button
-                .setButtonText('Reset Stats')
+                .setButtonText('Reset stats')
                 .setWarning()
                 .onClick(async () => {
                     this.plugin.stats = {
@@ -2712,12 +2712,12 @@ class PomodoroSettingTab extends PluginSettingTab {
                         totalWorkDuration: 0
                     };
                     await this.plugin.saveAllData();
-                    this.plugin.refreshView();
+                    void this.plugin.refreshView();
                     new Notice('Pomodoro statistics have been reset.');
                     // Force refresh setting tab to show 0 if I were displaying them here, but I'm not.
                 }));
 
-        containerEl.createEl('h3', { text: 'Sounds & Notifications' });
+        containerEl.createEl('h3', { text: 'Sounds & notifications' });
 
         new Setting(containerEl)
             .setName('Volume')
@@ -2750,7 +2750,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         };
 
         new Setting(containerEl)
-            .setName('Work Start Sound')
+            .setName('Work start sound')
             .setDesc('Sound to play when a focus session starts')
             .addDropdown(drop => drop
                 .addOptions(soundOptions)
@@ -2762,7 +2762,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Work Complete Sound')
+            .setName('Work complete sound')
             .setDesc('Sound to play when a focus session ends')
             .addDropdown(drop => drop
                 .addOptions(soundOptions)
@@ -2774,8 +2774,8 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Break Complete Sound')
-            .setDesc('Sound to play when a break ends (Short or Long)')
+            .setName('Break complete sound')
+            .setDesc('Sound to play when a break ends (short or long)')
             .addDropdown(drop => drop
                 .addOptions(soundOptions)
                 .setValue(this.plugin.settings.soundBreakEnd)
@@ -2786,7 +2786,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Pause Sound')
+            .setName('Pause sound')
             .setDesc('Sound to play when timer is paused')
             .addDropdown(drop => drop
                 .addOptions(soundOptions)
@@ -2811,10 +2811,10 @@ class RenameModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl("h2", { text: "Rename Marker" });
+        contentEl.createEl("h2", { text: "Rename marker" });
 
         const textSetting = new Setting(contentEl)
-            .setName("New Name")
+            .setName("New name")
             .addText((text) => {
                 text
                     .setValue(this.result)
