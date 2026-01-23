@@ -598,12 +598,12 @@ class CycleConfigModal extends Modal {
         const container = contentEl.createDiv({ cls: 'pomodoro-config-modal-container' });
 
         // Work Section
-        this.createConfigSection(container, 'Focus Duration', this.workDuration, [5, 10, 15, 20, 25, 30, 45, 50, 60], (val) => {
+        this.createConfigSection(container, 'Focus duration', this.workDuration, [5, 10, 15, 20, 25, 30, 45, 50, 60], (val) => {
             this.workDuration = val;
         });
 
         // Break Section
-        this.createConfigSection(container, 'Short Break', this.shortBreakDuration, [3, 5, 10, 15, 20], (val) => {
+        this.createConfigSection(container, 'Short break', this.shortBreakDuration, [3, 5, 10, 15, 20], (val) => {
             this.shortBreakDuration = val;
         });
 
@@ -793,7 +793,7 @@ export class PomodoroView extends ItemView {
         
         // Recurrence: 🔁 every ... when done (must be before date removal)
         // Matches: "🔁 every day", "🔁 every week", "🔁 every day when done", etc.
-        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]+/gi, '');
+        clean = clean.replace(/🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]+/gi, '');
         
         // On completion action: 🏁 delete
         clean = clean.replace(/🏁\s*delete/gi, '');
@@ -2421,7 +2421,7 @@ export class PomodoroView extends ItemView {
         stat1.createSpan({ cls: 'pomodoro-stat-value', text: String(stats.completedSessions) });
 
         const stat2 = statsDiv.createDiv({ cls: 'pomodoro-stat-item' });
-        stat2.createSpan({ text: 'Focus Time', attr: { style: 'font-size: 0.8em; opacity: 0.7;' } });
+        stat2.createSpan({ text: 'Focus time', attr: { style: 'font-size: 0.8em; opacity: 0.7;' } });
         stat2.createSpan({ cls: 'pomodoro-stat-value', text: `${stats.totalWorkDuration} m` });
     }
 }
@@ -2594,7 +2594,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         });
 
         const shortBreakSetting = new Setting(containerEl)
-            .setName('Short Break')
+            .setName('Short break')
             .setDesc('Duration of a short break')
             .addText(text => text
                 .setPlaceholder('5')
