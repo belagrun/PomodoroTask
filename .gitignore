@@ -31,3 +31,6 @@ npm-debug.log*
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Local Obsidian vault files
+C:\
