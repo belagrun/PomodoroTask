@@ -752,3 +752,9 @@
     align-items: center;
 }
 
+
+/* Hidden utility class */
+.pomodoro-hidden {
+    display: none !important;
+}
+
