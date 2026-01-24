@@ -1158,7 +1158,7 @@ export class PomodoroView extends ItemView {
 
                     // Ensure we are in Editing mode
                     if (view.getMode() !== 'source') {
-                        new Notice("Please switch to editing mode (Live Preview or Source) to add markers contextually.");
+                        new Notice("Please switch to editing mode (live preview or source) to add markers contextually.");
                         // Fallback to appending? Or just stop.
                         return;
                     }
@@ -1505,7 +1505,7 @@ export class PomodoroView extends ItemView {
         const label = container.querySelector<HTMLElement>('.pomodoro-active-task-label');
         if (label) {
             if (state.pausedTime) {
-                label.innerText = '⏸️ Paused';
+                label.innerText = '⏸️ paused';
                 label.addClass('pomodoro-label-paused');
             } else {
                 label.innerText = state.state === 'WORK' ? '⚠️ Focusing on' : '☕ Taking a break';
@@ -1525,10 +1525,10 @@ export class PomodoroView extends ItemView {
             controls.empty();
             // Pause/Resume Button
             if (state.pausedTime) {
-                const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ Resume' });
+                const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ resume' });
                 resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
             } else {
-                const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ Pause' });
+                const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ pause' });
                 pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
             }
 
@@ -1609,7 +1609,7 @@ export class PomodoroView extends ItemView {
         const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
 
         if (state.pausedTime) {
-            label.innerText = '⏸️ Paused';
+            label.innerText = '⏸️ paused';
             label.addClass('pomodoro-label-paused');
         } else {
             label.innerText = state.state === 'WORK' ? '⚠️ Focusing on' : '☕ Taking a break';
@@ -1701,10 +1701,10 @@ export class PomodoroView extends ItemView {
 
         // Pause/Resume Button
         if (state.pausedTime) {
-            const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ Resume' });
+            const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ resume' });
             resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
         } else {
-            const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ Pause' });
+            const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ pause' });
             pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
         }
 
@@ -1861,7 +1861,7 @@ export class PomodoroView extends ItemView {
 
         const header = container.createDiv({ cls: 'pomodoro-header pomodoro-task-list-header' });
 
-        header.createEl('h4', { text: '🎯 Active tasks' });
+        header.createEl('h4', { text: '🎯 active tasks' });
 
         const controls = header.createDiv({ cls: 'pomodoro-stats-items-container' });
 
@@ -1893,7 +1893,7 @@ export class PomodoroView extends ItemView {
             if (renderId !== this.renderCounter) return;
 
             container.createEl('p', {
-                text: 'Open a markdown file to see tasks.',
+                text: 'Open a Markdown file to see tasks.',
                 attr: { style: 'color: var(--text-muted); font-style: italic; margin-top: 20px;' }
             });
             return;
