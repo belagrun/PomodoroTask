@@ -846,7 +846,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
           }
           const view = targetLeaf.view;
           if (view.getMode() !== "source") {
-            new import_obsidian.Notice("Please switch to editing mode (Live Preview or Source) to add markers contextually.");
+            new import_obsidian.Notice("Please switch to editing mode (live preview or source) to add markers contextually.");
             return;
           }
           const contentRect = view.contentEl.getBoundingClientRect();
@@ -1096,7 +1096,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const label = container.querySelector(".pomodoro-active-task-label");
     if (label) {
       if (state.pausedTime) {
-        label.innerText = "\u23F8\uFE0F Paused";
+        label.innerText = "\u23F8\uFE0F paused";
         label.addClass("pomodoro-label-paused");
       } else {
         label.innerText = state.state === "WORK" ? "\u26A0\uFE0F Focusing on" : "\u2615 Taking a break";
@@ -1111,10 +1111,10 @@ var PomodoroView = class extends import_obsidian.ItemView {
     if (controls) {
       controls.empty();
       if (state.pausedTime) {
-        const resumeBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-resume", text: "\u25B6 Resume" });
+        const resumeBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-resume", text: "\u25B6 resume" });
         resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
       } else {
-        const pauseBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-pause", text: "\u23F8 Pause" });
+        const pauseBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-pause", text: "\u23F8 pause" });
         pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
       }
       const stopBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "Stop / cancel" });
@@ -1164,7 +1164,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const header = taskCard.createDiv({ cls: "pomodoro-active-task-header pomodoro-draggable pomodoro-stats-row" });
     const label = header.createDiv({ cls: "pomodoro-active-task-label" });
     if (state.pausedTime) {
-      label.innerText = "\u23F8\uFE0F Paused";
+      label.innerText = "\u23F8\uFE0F paused";
       label.addClass("pomodoro-label-paused");
     } else {
       label.innerText = state.state === "WORK" ? "\u26A0\uFE0F Focusing on" : "\u2615 Taking a break";
@@ -1224,10 +1224,10 @@ var PomodoroView = class extends import_obsidian.ItemView {
     void this.populateCycleInfo(cycleInfoContainer);
     const controls = view.createDiv({ cls: "pomodoro-controls" });
     if (state.pausedTime) {
-      const resumeBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-resume", text: "\u25B6 Resume" });
+      const resumeBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-resume", text: "\u25B6 resume" });
       resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
     } else {
-      const pauseBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-pause", text: "\u23F8 Pause" });
+      const pauseBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-pause", text: "\u23F8 pause" });
       pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
     }
     const stopBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "Stop" });
@@ -1343,7 +1343,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     if (!container)
       return;
     const header = container.createDiv({ cls: "pomodoro-header pomodoro-task-list-header" });
-    header.createEl("h4", { text: "\u{1F3AF} Active tasks" });
+    header.createEl("h4", { text: "\u{1F3AF} active tasks" });
     const controls = header.createDiv({ cls: "pomodoro-stats-items-container" });
     const settingsBtn = controls.createEl("button", { cls: "clickable-icon pomodoro-flex-btn" });
     settingsBtn.ariaLabel = "Settings";
@@ -1366,7 +1366,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
       if (renderId !== this.renderCounter)
         return;
       container.createEl("p", {
-        text: "Open a markdown file to see tasks.",
+        text: "Open a Markdown file to see tasks.",
         attr: { style: "color: var(--text-muted); font-style: italic; margin-top: 20px;" }
       });
       return;
