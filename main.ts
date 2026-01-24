@@ -916,7 +916,7 @@ export class PomodoroView extends ItemView {
             }
 
             // Try to find existing widget in body
-            let widget = parent.querySelector('.pomodoro-marker-widget') as HTMLElement;
+            let widget = parent.querySelector<HTMLElement>('.pomodoro-marker-widget');
 
             if (!widget) {
                 widget = parent.createDiv({ cls: 'pomodoro-marker-widget' });
@@ -924,10 +924,12 @@ export class PomodoroView extends ItemView {
                 // Restore position if valid
                 const savedPos = this.plugin.settings.markerWidgetPos;
                 if (savedPos) {
-                    widget.style.right = 'auto';
-                    widget.style.bottom = 'auto';
-                    widget.style.left = savedPos.x + 'px';
-                    widget.style.top = savedPos.y + 'px';
+                    widget.setCssProps({
+                        '--pomodoro-widget-right': 'auto',
+                        '--pomodoro-widget-bottom': 'auto',
+                        '--pomodoro-widget-left': savedPos.x + 'px',
+                        '--pomodoro-widget-top': savedPos.y + 'px'
+                    });
                 }
 
                 // Header
@@ -951,14 +953,16 @@ export class PomodoroView extends ItemView {
                     initialTop = rect.top;
 
                     // Clear default styles if set via CSS (right/bottom) to allow absolute positioning via left/top
-                    widget.style.right = 'auto';
-                    widget.style.bottom = 'auto';
-                    widget.style.left = initialLeft + 'px';
-                    widget.style.top = initialTop + 'px';
+                    widget.setCssProps({
+                        '--pomodoro-widget-right': 'auto',
+                        '--pomodoro-widget-bottom': 'auto',
+                        '--pomodoro-widget-left': initialLeft + 'px',
+                        '--pomodoro-widget-top': initialTop + 'px'
+                    });
 
                     // Add temp global listeners
                     document.addEventListener('mousemove', onMouseMove);
-                    document.addEventListener('mouseup', onMouseUp);
+                    document.addEventListener('mouseup', handleMouseUp);
                     e.preventDefault(); // Prevent text selection
                 };
 
@@ -969,21 +973,26 @@ export class PomodoroView extends ItemView {
 
                     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
 
-                    widget.style.left = (initialLeft + dx) + 'px';
-                    widget.style.top = (initialTop + dy) + 'px';
+                    widget.setCssProps({
+                        '--pomodoro-widget-left': (initialLeft + dx) + 'px',
+                        '--pomodoro-widget-top': (initialTop + dy) + 'px'
+                    });
                 };
 
                 const onMouseUp = async () => {
                     if (!isDragging) return;
                     isDragging = false;
                     document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
+                    document.removeEventListener('mouseup', handleMouseUp);
 
                     // Save position
                     const rect = widget.getBoundingClientRect();
                     this.plugin.settings.markerWidgetPos = { x: rect.left, y: rect.top };
                     await this.plugin.saveAllData();
                 };
+
+                // Wrapper to handle Promise in event listener
+                const handleMouseUp = () => { void onMouseUp(); };
 
                 header.onclick = (e) => {
                     e.stopPropagation();
@@ -1026,7 +1035,7 @@ export class PomodoroView extends ItemView {
             }
 
             // Populate Content
-            const contentArea = widget.querySelector('.pomodoro-marker-content') as HTMLElement;
+            const contentArea = widget.querySelector<HTMLElement>('.pomodoro-marker-content');
             if (contentArea) {
                 contentArea.empty(); // Use Obsidian's empty() method instead of innerHTML
 
@@ -1091,9 +1100,9 @@ export class PomodoroView extends ItemView {
                         e.stopPropagation();
                         const freshLine = await this.findMarkerLine(currentFile, m.name);
                         if (freshLine !== -1) {
-                            new RenameModal(this.plugin.app, m.name, async (newName) => {
+                            new RenameModal(this.plugin.app, m.name, (newName) => {
                                 if (newName && newName !== m.name) {
-                                    await this.renameMarker(currentFile, freshLine, m.name, newName);
+                                    void this.renameMarker(currentFile, freshLine, m.name, newName);
                                 }
                             }).open();
                         } else {
@@ -1314,15 +1323,13 @@ export class PomodoroView extends ItemView {
             if (scrollTimeout) {
                 window.clearTimeout(scrollTimeout);
             }
-            scrollTimeout = window.setTimeout(async () => {
+            scrollTimeout = window.setTimeout(() => {
                 if (isMovingMarker) return;
                 isMovingMarker = true;
 
-                try {
-                    await this.moveFollowingMarkers(file, container);
-                } finally {
+                void this.moveFollowingMarkers(file, container).finally(() => {
                     isMovingMarker = false;
-                }
+                });
             }, 100); // Debounce 100ms
         };
 
@@ -1495,7 +1502,7 @@ export class PomodoroView extends ItemView {
         const { state } = this.plugin.timerService;
 
         // Update Label and Styles based on state
-        const label = container.querySelector('.pomodoro-active-task-label') as HTMLElement;
+        const label = container.querySelector<HTMLElement>('.pomodoro-active-task-label');
         if (label) {
             if (state.pausedTime) {
                 label.innerText = '⏸️ Paused';
@@ -2401,7 +2408,7 @@ export default class PomodoroTaskPlugin extends Plugin {
         const leaves = workspace.getLeavesOfType(POMODORO_VIEW_TYPE);
         if (leaves.length > 0) {
             leaf = leaves[0];
-            workspace.revealLeaf(leaf);
+            void workspace.revealLeaf(leaf);
         } else {
             const rightLeaf = workspace.getRightLeaf(false);
             if (rightLeaf) {
@@ -2454,7 +2461,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         new Setting(containerEl)
-            .setName('Pomodoro settings')
+            .setName('Pomodoro')
             .setHeading();
 
         new Setting(containerEl)
@@ -2484,11 +2491,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                 }));
 
         // Add chips to the main container, so they appear below the setting row
-        this.addDurationChips(containerEl, [1, 5, 10, 15, 20, 25, 30, 45, 60], async (val) => {
+        this.addDurationChips(containerEl, [1, 5, 10, 15, 20, 25, 30, 45, 60], (val) => {
             this.plugin.settings.workDuration = val;
             const input = workSetting.controlEl.querySelector('input');
             if (input) input.value = String(val);
-            await this.plugin.saveAllData();
+            void this.plugin.saveAllData();
         });
 
         const shortBreakSetting = new Setting(containerEl)
@@ -2502,11 +2509,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        this.addDurationChips(containerEl, [1, 2, 3, 5, 10, 15], async (val) => {
+        this.addDurationChips(containerEl, [1, 2, 3, 5, 10, 15], (val) => {
             this.plugin.settings.shortBreakDuration = val;
             const input = shortBreakSetting.controlEl.querySelector('input');
             if (input) input.value = String(val);
-            await this.plugin.saveAllData();
+            void this.plugin.saveAllData();
         });
 
         const longBreakSetting = new Setting(containerEl)
@@ -2520,11 +2527,11 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                 }));
 
-        this.addDurationChips(containerEl, [10, 15, 20, 25, 30, 45, 60], async (val) => {
+        this.addDurationChips(containerEl, [10, 15, 20, 25, 30, 45, 60], (val) => {
             this.plugin.settings.longBreakDuration = val;
             const input = longBreakSetting.controlEl.querySelector('input');
             if (input) input.value = String(val);
-            await this.plugin.saveAllData();
+            void this.plugin.saveAllData();
         });
 
 
