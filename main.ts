@@ -696,8 +696,34 @@ class TimerService {
                 const resultLines = result.split('\n');
                 this.plugin.debugLogger.log('Result lines count:', resultLines.length);
 
+                // Reset the tomato counter on the NEW task (the uncompleted one)
+                // The completed task keeps its counter, the new recurring task starts at 0
+                const processedResultLines = resultLines.map((resultLine: string) => {
+                    // Check if this is an uncompleted task (new recurring instance)
+                    if (/^\s*[-*+]\s*\[ \]/.test(resultLine)) {
+                        // Reset counter to 0/N preserving bracket format
+                        const tomatoMatch = resultLine.match(/(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/);
+                        if (tomatoMatch && tomatoMatch[3]) {
+                            // Has a goal, reset to 0/goal
+                            const hasOpenBracket = tomatoMatch[1] === '[';
+                            const hasCloseBracket = tomatoMatch[4] === ']';
+                            const hasBrackets = hasOpenBracket && hasCloseBracket;
+                            const goal = tomatoMatch[3];
+                            
+                            let resetLabel = `🍅:: 0/${goal}`;
+                            if (hasBrackets) {
+                                resetLabel = `[${resetLabel}]`;
+                            }
+                            
+                            this.plugin.debugLogger.log('Resetting new task counter to:', resetLabel);
+                            return resultLine.replace(tomatoMatch[0], resetLabel);
+                        }
+                    }
+                    return resultLine;
+                });
+
                 // Replace the original line with the result (may be multiple lines)
-                lines.splice(lineIdx, 1, ...resultLines);
+                lines.splice(lineIdx, 1, ...processedResultLines);
 
                 await this.plugin.app.vault.modify(file, lines.join('\n'));
                 this.plugin.debugLogger.log('File modified successfully via Tasks API');

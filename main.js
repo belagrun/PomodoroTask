@@ -508,7 +508,25 @@ var TimerService = class {
         const lines2 = content2.split("\n");
         const resultLines = result.split("\n");
         this.plugin.debugLogger.log("Result lines count:", resultLines.length);
-        lines2.splice(lineIdx, 1, ...resultLines);
+        const processedResultLines = resultLines.map((resultLine) => {
+          if (/^\s*[-*+]\s*\[ \]/.test(resultLine)) {
+            const tomatoMatch = resultLine.match(/(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/);
+            if (tomatoMatch && tomatoMatch[3]) {
+              const hasOpenBracket = tomatoMatch[1] === "[";
+              const hasCloseBracket = tomatoMatch[4] === "]";
+              const hasBrackets = hasOpenBracket && hasCloseBracket;
+              const goal = tomatoMatch[3];
+              let resetLabel = `\u{1F345}:: 0/${goal}`;
+              if (hasBrackets) {
+                resetLabel = `[${resetLabel}]`;
+              }
+              this.plugin.debugLogger.log("Resetting new task counter to:", resetLabel);
+              return resultLine.replace(tomatoMatch[0], resetLabel);
+            }
+          }
+          return resultLine;
+        });
+        lines2.splice(lineIdx, 1, ...processedResultLines);
         await this.plugin.app.vault.modify(file, lines2.join("\n"));
         this.plugin.debugLogger.log("File modified successfully via Tasks API");
         return;
