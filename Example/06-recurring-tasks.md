@@ -63,9 +63,10 @@ When a recurring task completes all its pomodoro cycles (e.g., `🍅:: 2/2`):
    - Resets the checkbox to `[ ]`
    - Preserves all metadata (recurrence, priority, tags, etc.)
 
-**Why Editor API?** 
+**Why Editor API?**
 
 Instead of directly writing text to the file, Pomodoro Task uses `editor.replaceRange()` which:
+
 - ✅ Triggers proper Obsidian events
 - ✅ Allows Tasks plugin to detect and process the change
 - ✅ Maintains full compatibility with Tasks plugin recurrence engine
@@ -78,8 +79,9 @@ Instead of directly writing text to the file, Pomodoro Task uses `editor.replace
 ```
 
 The Tasks plugin handles all complex recurrence logic:
+
 - `🔁 every day` - Creates next task for tomorrow
-- `🔁 every day when done` - Creates next task based on completion date  
+- `🔁 every day when done` - Creates next task based on completion date
 - `🔁 every week on Monday` - Creates next task for next Monday
 - `🔁 every month on the 1st` - Creates next task on 1st of next month
 - And many more patterns!

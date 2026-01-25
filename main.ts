@@ -497,7 +497,7 @@ class TimerService {
 
     async logCompletion() {
         console.log('[PomodoroTask] logCompletion called');
-        
+
         // Reload file content to get fresh state
         const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
         if (!(file instanceof TFile)) {
@@ -582,11 +582,11 @@ class TimerService {
 
     async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string) {
         console.log('[PomodoroTask] Attempting to complete task:', originalLine);
-        
+
         // First, we need to update the tomato counter in the line BEFORE passing to Tasks API
         const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
         const match = originalLine.match(tomatoRegex);
-        
+
         let lineWithUpdatedCounter = originalLine;
         if (match) {
             const currentCount = parseInt(match[1]);
@@ -598,37 +598,37 @@ class TimerService {
             }
             lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
         }
-        
+
         console.log('[PomodoroTask] Line with updated counter:', lineWithUpdatedCounter);
-        
+
         // Try to use the Tasks plugin API (best option for recurrence)
         // @ts-ignore - accessing plugin API
         const tasksPlugin = this.plugin.app.plugins.plugins['obsidian-tasks-plugin'];
-        
+
         console.log('[PomodoroTask] Tasks plugin found:', !!tasksPlugin);
         console.log('[PomodoroTask] Tasks API available:', !!tasksPlugin?.apiV1);
         console.log('[PomodoroTask] executeToggleTaskDoneCommand available:', !!tasksPlugin?.apiV1?.executeToggleTaskDoneCommand);
-        
+
         if (tasksPlugin?.apiV1?.executeToggleTaskDoneCommand) {
             // Use the Tasks API to toggle the task - this handles recurrence properly!
             // Pass the line with updated counter so Tasks can process it
             const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(lineWithUpdatedCounter, file.path);
-            
+
             console.log('[PomodoroTask] Tasks API result:', result);
             console.log('[PomodoroTask] Result different from input:', result !== lineWithUpdatedCounter);
-            
+
             if (result && result !== lineWithUpdatedCounter) {
                 // Read file again to get current state
                 const content = await this.plugin.app.vault.read(file);
                 const lines = content.split('\n');
-                
+
                 // The result may contain multiple lines (if recurring task created new instance)
                 const resultLines = result.split('\n');
                 console.log('[PomodoroTask] Result lines count:', resultLines.length);
-                
+
                 // Replace the original line with the result (may be multiple lines)
                 lines.splice(lineIdx, 1, ...resultLines);
-                
+
                 await this.plugin.app.vault.modify(file, lines.join('\n'));
                 console.log('[PomodoroTask] File modified successfully via Tasks API');
                 return;
@@ -636,15 +636,15 @@ class TimerService {
         }
 
         console.log('[PomodoroTask] Falling back to direct modification...');
-        
+
         // Fallback: Update the file directly with the updated counter and mark complete
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
-        
+
         // Update with counter and mark as complete
         const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
         let completedLine = lineWithUpdatedCounter.replace(checkboxRegex, '$1[x]');
-        
+
         lines[lineIdx] = completedLine;
         await this.plugin.app.vault.modify(file, lines.join('\n'));
         console.log('[PomodoroTask] File modified with direct replacement');
