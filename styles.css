@@ -715,6 +715,42 @@
     text-align: center;
 }
 
+/* Cycle Editing Mode */
+.pomodoro-cycle-editing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+.pomodoro-cycle-edit-label {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.pomodoro-cycle-confirm-btn {
+    padding: 2px 6px;
+    margin-left: 4px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pomodoro-cycle-confirm-btn:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.pomodoro-cycle-confirm-btn .svg-icon {
+    width: 14px;
+    height: 14px;
+}
+
 /* Task List Header */
 .pomodoro-task-list-header {
     display: flex;

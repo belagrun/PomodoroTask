@@ -1389,16 +1389,24 @@ var PomodoroView = class extends import_obsidian.ItemView {
       return;
     }
     const line = lines[lineIdx];
-    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+    const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
     const match = line.match(tomatoRegex);
     if (match) {
-      const currentCount = parseInt(match[1]);
-      const goalStr = match[2];
+      const currentCount = parseInt(match[2]);
+      const goalStr = match[3];
       if (goalStr) {
         valueSpan.innerText = `${currentCount}/${goalStr}`;
       } else {
         valueSpan.innerText = `${currentCount}`;
       }
+      valueSpan.addClass("pomodoro-clickable-value");
+      valueSpan.title = "Click to edit pomodoro cycles";
+      valueSpan.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const hasBrackets = match[1] === "[" && match[4] === "]";
+        this.enableFullCycleEditing(cycleDiv, file, lineIdx, currentCount, goalStr ? parseInt(goalStr) : null, hasBrackets);
+      };
     } else {
       valueSpan.innerText = "--";
       valueSpan.addClass("pomodoro-clickable-value");
@@ -1406,31 +1414,103 @@ var PomodoroView = class extends import_obsidian.ItemView {
       valueSpan.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this.enableCycleEditing(valueSpan, file, lineIdx);
+        this.enableFullCycleEditing(cycleDiv, file, lineIdx, 0, null, false);
       };
     }
   }
-  enableCycleEditing(container, file, lineIdx) {
+  enableFullCycleEditing(container, file, lineIdx, currentCycle, totalCycles, hasBrackets) {
     container.empty();
-    const input = container.createEl("input", { type: "number", cls: "pomodoro-cycle-input" });
-    input.onclick = (e) => e.stopPropagation();
+    container.addClass("pomodoro-cycle-editing");
+    const iconSpan = container.createSpan();
+    iconSpan.innerText = "\u{1F345}";
+    const cycleLabel = container.createSpan({ cls: "pomodoro-cycle-edit-label", text: " cycle: " });
+    const cycleInput = container.createEl("input", {
+      type: "number",
+      cls: "pomodoro-cycle-input",
+      value: String(currentCycle)
+    });
+    cycleInput.min = "0";
+    cycleInput.style.width = "40px";
+    const totalLabel = container.createSpan({ cls: "pomodoro-cycle-edit-label", text: " total: " });
+    const totalInput = container.createEl("input", {
+      type: "number",
+      cls: "pomodoro-cycle-input",
+      value: totalCycles !== null ? String(totalCycles) : ""
+    });
+    totalInput.min = "1";
+    totalInput.placeholder = "--";
+    totalInput.style.width = "40px";
+    const confirmBtn = container.createEl("button", { cls: "pomodoro-cycle-confirm-btn clickable-icon" });
+    (0, import_obsidian.setIcon)(confirmBtn, "check");
+    confirmBtn.title = "Save changes";
+    cycleInput.onclick = (e) => e.stopPropagation();
+    totalInput.onclick = (e) => e.stopPropagation();
     const finish = async () => {
-      const val = parseInt(input.value);
-      if (!isNaN(val) && val > 0) {
-        await this.updateTaskCycleGoal(file, lineIdx, val);
+      const newCycle = parseInt(cycleInput.value);
+      const newTotal = parseInt(totalInput.value);
+      if (!isNaN(newCycle) && newCycle >= 0) {
+        if (!isNaN(newTotal) && newTotal > 0) {
+          await this.updateTaskCycleValues(file, lineIdx, newCycle, newTotal, hasBrackets);
+        } else if (totalCycles !== null) {
+          await this.updateTaskCycleValues(file, lineIdx, newCycle, totalCycles, hasBrackets);
+        }
       }
+      container.removeClass("pomodoro-cycle-editing");
       this.render();
     };
-    input.onblur = () => finish();
-    input.onkeydown = (e) => {
+    const cancel = () => {
+      container.removeClass("pomodoro-cycle-editing");
+      this.render();
+    };
+    confirmBtn.onclick = (e) => {
+      e.stopPropagation();
+      finish();
+    };
+    const handleKeydown = (e) => {
       if (e.key === "Enter") {
-        input.blur();
+        finish();
       }
       if (e.key === "Escape") {
-        this.render();
+        cancel();
       }
     };
-    setTimeout(() => input.focus(), 0);
+    cycleInput.onkeydown = handleKeydown;
+    totalInput.onkeydown = handleKeydown;
+    setTimeout(() => cycleInput.focus(), 0);
+  }
+  async updateTaskCycleValues(file, lineIdx, cycle, total, hasBrackets) {
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split("\n");
+    if (lineIdx < lines.length) {
+      let line = lines[lineIdx];
+      const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
+      let newLabel = `\u{1F345}:: ${cycle}/${total}`;
+      if (hasBrackets) {
+        newLabel = `[${newLabel}]`;
+      }
+      if (tomatoRegex.test(line)) {
+        lines[lineIdx] = line.replace(tomatoRegex, newLabel);
+      } else {
+        const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
+        const match = line.match(checkboxRegex);
+        if (match) {
+          const prefix = match[1];
+          const rest = line.substring(prefix.length);
+          lines[lineIdx] = `${prefix}${newLabel} ${rest}`;
+        } else {
+          const indentMatch = line.match(/^(\s*)(.*)/);
+          if (indentMatch) {
+            const indent = indentMatch[1];
+            const text = indentMatch[2];
+            lines[lineIdx] = `${indent}${newLabel} ${text}`;
+          } else {
+            lines[lineIdx] = `${newLabel} ${line}`;
+          }
+        }
+      }
+      await this.plugin.app.vault.modify(file, lines.join("\n"));
+      new import_obsidian.Notice(`Updated: \u{1F345} ${cycle}/${total}`);
+    }
   }
   async updateTaskCycleGoal(file, lineIdx, goal) {
     const content = await this.plugin.app.vault.read(file);
