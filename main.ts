@@ -73,7 +73,7 @@ class DebugLogger {
         }
 
         // Also output to console
-        console.log('[PomodoroTask]', ...args);
+        console.debug('[PomodoroTask]', message);
     }
 
     getLogs(): string {
@@ -2004,7 +2004,6 @@ export class PomodoroView extends ItemView {
             value: String(currentCycle)
         });
         cycleInput.min = '0';
-        cycleInput.style.width = '40px';
 
         container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' total: ' });
 
@@ -2015,7 +2014,6 @@ export class PomodoroView extends ItemView {
         });
         totalInput.min = '1';
         totalInput.placeholder = '--';
-        totalInput.style.width = '40px';
 
         const confirmBtn = container.createEl('button', { cls: 'pomodoro-cycle-confirm-btn clickable-icon' });
         setIcon(confirmBtn, 'check');
@@ -2155,7 +2153,7 @@ export class PomodoroView extends ItemView {
 
         const header = container.createDiv({ cls: 'pomodoro-header pomodoro-task-list-header' });
 
-        header.createEl('h4', { text: '🎯 active tasks' });
+        header.createEl('h4', { text: '🎯 Active tasks' });
 
         const controls = header.createDiv({ cls: 'pomodoro-stats-items-container' });
 
@@ -2344,7 +2342,7 @@ export class PomodoroView extends ItemView {
             });
 
             item.addEventListener('click', () => {
-                this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
+                void this.plugin.timerService.startSession({ file, line: task.line, text: task.text }, 'WORK');
             });
         });
     }

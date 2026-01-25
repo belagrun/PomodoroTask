@@ -1,0 +1,855 @@
+/* styles.css */
+.pomodoro-view-container {
+    padding: 24px 16px 16px 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.pomodoro-header {
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    padding-bottom: 10px;
+}
+
+.pomodoro-header h4 {
+    margin: 0;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+/* Task List */
+.pomodoro-task-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px; /* Added padding to prevent first item clipping and give breathing room */
+}
+
+.pomodoro-task-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center; /* Vertical alignment */
+    gap: 10px; /* Space between left (icon/count) and text */
+}
+
+.pomodoro-task-item:hover {
+    background-color: var(--background-modifier-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-color: var(--interactive-accent);
+}
+
+.pomodoro-task-left {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px; /* Ensure alignment column width */
+}
+
+.pomodoro-task-icon {
+    color: var(--text-muted);
+    display: flex;
+}
+
+.pomodoro-task-count-pill {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--text-on-accent);
+    background-color: var(--interactive-accent); /* Greenish pill */
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.pomodoro-task-text-container {
+    flex: 1;
+    overflow: hidden; /* Handle long text */
+}
+
+.pomodoro-task-text-clean {
+    font-size: 0.95em;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--text-normal);
+    display: block;
+}
+
+.pomodoro-task-text-clean p {
+    margin: 0;
+}
+
+
+.pomodoro-task-text-full {
+    font-size: 0.9em;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--text-muted);
+    display: none;
+    word-break: break-word;
+}
+
+/* Hover State */
+.pomodoro-task-item:hover .pomodoro-task-text-clean {
+    display: none;
+}
+
+.pomodoro-task-item:hover .pomodoro-task-text-full {
+    display: block;
+}
+
+
+/* Timer View */
+.pomodoro-timer-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start; /* Changed from center to prevent clipping */
+    height: 100%;
+    overflow-y: auto; /* Enable scrolling */
+    padding-top: 0; /* Let elements flow naturally */
+}
+
+.pomodoro-active-task-card {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: 15px;
+    border-radius: 12px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.pomodoro-active-task-label {
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+.pomodoro-active-task-text {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.pomodoro-active-task-text p {
+    margin: 0;
+    line-height: 1.3;
+}
+
+.pomodoro-active-task-text .cm-s-obsidian,
+.pomodoro-active-task-text .markdown-render {
+    display: inline;
+}
+
+
+.pomodoro-timer-display {
+    font-size: 4em;
+    font-weight: 700;
+    font-family: var(--font-monospace);
+    color: var(--text-normal);
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pomodoro-controls {
+    display: flex;
+    gap: 15px;
+}
+
+.pomodoro-btn {
+    padding: 8px 24px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.pomodoro-btn-stop {
+    background-color: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    border: none;
+}
+.pomodoro-btn-stop:hover {
+    background-color: var(--background-modifier-error-hover);
+}
+
+.pomodoro-btn-pause {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    opacity: 0.9;
+}
+.pomodoro-btn-pause:hover {
+    opacity: 1;
+}
+
+.pomodoro-btn-resume {
+    background-color: var(--interactive-success);
+    color: var(--text-on-accent);
+    border: none;
+}
+.pomodoro-btn-resume:hover {
+    background-color: var(--interactive-success-hover);
+}
+
+/* Stats */
+.pomodoro-stats {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    font-size: 0.85em;
+    color: var(--text-muted);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.pomodoro-stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.pomodoro-subtask-list {
+    width: 100%;
+    max-width: 400px; /* Match typical card width or reasonable limit */
+    margin-top: 15px;
+    /* Styles moved from inline in main.ts */
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 10px;
+}
+
+.pomodoro-subtask-row {
+    padding: 4px 0;
+    width: 100%;
+}
+
+.pomodoro-subtask-text {
+    flex: 1;
+    margin-left: 8px;
+    font-size: 0.9em;
+    min-width: 0;
+    word-break: break-word;
+    color: var(--text-normal);
+}
+
+.pomodoro-subtask-text p {
+    margin: 0;
+}
+
+.pomodoro-stat-value {
+    font-weight: bold;
+    color: var(--text-normal);
+}
+
+/* Cycle Info */
+.pomodoro-cycle-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px 0 24px 0;
+    padding: 6px 16px;
+    background-color: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.pomodoro-cycle-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--text-muted);
+    line-height: normal;
+}
+
+
+/* Floating Stats */
+.pomodoro-floating-stats {
+    position: fixed;
+    bottom: 35px; /* Above status bar */
+    right: 25px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--text-muted);
+    z-index: 9999;
+    pointer-events: none; /* Let clicks pass through */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+
+/* Cycle Config Modal - Custom UI */
+.pomodoro-config-modal-container {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.pomodoro-config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pomodoro-config-label {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pomodoro-input-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--background-secondary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.pomodoro-time-input {
+    background: transparent !important;
+    border: none !important;
+    font-size: 1.5em !important;
+    font-weight: bold !important;
+    width: 80px !important;
+    text-align: right;
+    padding: 0 !important;
+    color: var(--text-normal) !important;
+}
+
+.pomodoro-time-input:focus {
+    box-shadow: none !important;
+}
+
+.pomodoro-unit {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.pomodoro-presets-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center; /* Center presets */
+    margin-top: 4px;
+}
+
+/* Also support the duration chips container in Settings Tab */
+.pomodoro-duration-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 20px; /* Space before next setting */
+    padding-left: 20px; /* Indent to align with setting text if needed, or remove */
+}
+
+.pomodoro-preset-chip, .pomodoro-chip {
+    font-size: 0.75em;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background-color: var(--background-secondary-alt);
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pomodoro-preset-chip:hover, .pomodoro-chip:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    transform: translateY(-1px);
+}
+
+.pomodoro-preset-chip.is-active,
+.pomodoro-preset-chip:active,
+.pomodoro-chip:active {
+    background-color: var(--interactive-accent); /* Greenish usually */
+    color: var(--text-on-accent);
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.pomodoro-apply-btn {
+    width: 100%;
+    margin-top: 10px;
+    height: 40px;
+    font-size: 1em;
+}
+
+/* Loading Spinner */
+.pomodoro-loader-overlay {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    background: rgba(var(--mono-rgb-100), 0.5);
+    padding: 2px;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+.pomodoro-loader-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--text-muted);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: pomodoro-spin 0.8s linear infinite;
+}
+
+@keyframes pomodoro-spin {
+    to { transform: rotate(360deg); }
+}
+
+.pomodoro-task-item {
+    position: relative; /* For absolute positioning of loader */
+}
+
+/* Page Marker Widget */
+.pomodoro-marker-widget {
+    position: fixed;
+    right: var(--pomodoro-widget-right, 20px);
+    bottom: var(--pomodoro-widget-bottom, 80px);
+    left: var(--pomodoro-widget-left, auto);
+    top: var(--pomodoro-widget-top, auto);
+    width: 40px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 9999;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 80vh;
+}
+
+.pomodoro-marker-widget.is-expanded {
+    width: 200px;
+    border-radius: 12px;
+}
+
+.pomodoro-marker-header {
+    height: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: var(--background-secondary);
+    border-bottom: 1px solid transparent;
+    user-select: none;
+}
+
+.pomodoro-marker-widget.is-expanded .pomodoro-marker-header {
+    justify-content: space-between;
+    padding: 0 12px;
+    border-bottom-color: var(--background-modifier-border);
+}
+
+.pomodoro-marker-icon {
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+.pomodoro-marker-title {
+    font-size: 0.9em;
+    font-weight: 600;
+    display: none;
+    color: var(--text-normal);
+}
+
+.pomodoro-marker-widget.is-expanded .pomodoro-marker-title {
+    display: block;
+}
+
+.pomodoro-marker-content {
+    display: none; /* Hidden when collapsed */
+    padding: 10px;
+    background-color: var(--background-primary);
+    overflow-y: auto;
+}
+
+.pomodoro-marker-widget.is-expanded .pomodoro-marker-content {
+    display: block;
+}
+
+.pomodoro-marker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.pomodoro-marker-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 700;
+    color: #fff; 
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.2s, filter 0.2s;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.pomodoro-marker-item:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+
+.pomodoro-marker-follow {
+    opacity: 0.7;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 2px;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.pomodoro-marker-follow:hover {
+    opacity: 1;
+    background-color: rgba(255,255,255,0.2);
+}
+
+.pomodoro-marker-edit {
+    opacity: 0.7;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 2px;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.pomodoro-marker-edit:hover {
+    opacity: 1;
+    background-color: rgba(255,255,255,0.2);
+}
+
+.pomodoro-marker-delete {
+    opacity: 0.7;
+    cursor: pointer;
+    font-size: 1.1em; /* Unicode X or icon */
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.pomodoro-marker-delete:hover {
+    opacity: 1;
+    background-color: rgba(255,255,255,0.2);
+}
+
+.pomodoro-marker-add-btn {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--background-secondary-alt);
+    border: 1px dashed var(--text-muted);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85em;
+    text-align: center;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.pomodoro-marker-add-btn:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border-color: var(--text-normal);
+}
+
+/* Timer View Navigation Bar */
+.pomodoro-timer-navbar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+/* Transparent Button Style */
+.pomodoro-transparent-btn {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    cursor: pointer;
+    opacity: 0.7;
+    padding: 0;
+    display: flex;
+}
+
+.pomodoro-transparent-btn:hover {
+    opacity: 1;
+}
+
+/* Muted Color Button */
+.pomodoro-muted-btn {
+    color: var(--text-muted);
+}
+
+/* Label Paused State */
+.pomodoro-label-paused {
+    opacity: 1.0;
+    color: var(--text-warning);
+}
+
+/* Stats Row */
+.pomodoro-stats-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Header Stats Row (with scale) */
+.pomodoro-header-stats-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transform: scale(0.85);
+}
+
+/* Stats Items Container */
+.pomodoro-stats-items-container {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+/* Draggable Cursor */
+.pomodoro-draggable {
+    cursor: pointer;
+}
+
+/* Marker Item with Dynamic Background */
+.pomodoro-marker-item-name {
+    flex: 1;
+}
+
+/* Text Container Row */
+.pomodoro-text-container-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Link Button */
+.pomodoro-link-btn {
+    background: none;
+    border: none;
+    padding: 0 5px;
+    cursor: pointer;
+}
+
+/* Toggle Icon */
+.pomodoro-toggle-icon {
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+/* Small Button */
+.pomodoro-small-btn {
+    font-size: 0.8em;
+    padding: 6px 12px;
+    opacity: 0.8;
+}
+
+/* Hidden Element */
+.pomodoro-hidden {
+    display: none;
+}
+
+/* Cycle Value Input */
+.pomodoro-cycle-input {
+    width: 40px;
+    height: 1.5em;
+    padding: 0;
+    border: none;
+    border-bottom: 1px solid var(--text-accent);
+    background: transparent;
+    color: var(--text-normal);
+    text-align: center;
+}
+
+/* Cycle Editing Mode */
+.pomodoro-cycle-editing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+.pomodoro-cycle-edit-label {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.pomodoro-cycle-confirm-btn {
+    padding: 2px 6px;
+    margin-left: 4px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pomodoro-cycle-confirm-btn:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.pomodoro-cycle-confirm-btn .svg-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Task List Header */
+.pomodoro-task-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Subtask Row */
+.pomodoro-subtask-row-flex {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+/* Completed Task Strikethrough */
+.pomodoro-task-completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* Subtask Link Icon */
+.pomodoro-subtask-link {
+    cursor: pointer;
+    opacity: 0.5;
+    font-size: 0.8em;
+}
+
+/* Clickable Value */
+.pomodoro-clickable-value {
+    cursor: pointer;
+}
+
+/* Flex display button */
+.pomodoro-flex-btn {
+    display: flex;
+    align-items: center;
+}
+
+
+/* Hidden utility class */
+.pomodoro-hidden {
+    display: none !important;
+}
+
+/* Debug Logs Section */
+.pomodoro-debug-logs-container {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--background-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.pomodoro-debug-logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.pomodoro-debug-logs-title {
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.pomodoro-debug-logs-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.pomodoro-debug-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    background: var(--interactive-normal);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.pomodoro-debug-btn:hover {
+    background: var(--interactive-hover);
+}
+
+.pomodoro-debug-logs-textarea {
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+    padding: 10px;
+    font-family: var(--font-monospace);
+    font-size: 11px;
+    line-height: 1.4;
+    background: var(--background-primary);
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    resize: vertical;
+    overflow-y: auto;
+}
+
