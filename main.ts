@@ -568,29 +568,41 @@ class TimerService {
         }
 
         // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
-        const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+        // Capture groups: (1) opening bracket, (2) count, (3) goal, (4) closing bracket
+        const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
         const match = line.match(tomatoRegex);
 
         let newLine = line;
         let shouldComplete = false;
 
         if (match) {
+            // Preserve bracket format
+            const hasOpenBracket = match[1] === '[';
+            const hasCloseBracket = match[4] === ']';
+            const hasBrackets = hasOpenBracket && hasCloseBracket;
+            
             // Increment existing counter
-            const currentCount = parseInt(match[1]);
-            const goalStr = match[2]; // undefined if no goal
+            const currentCount = parseInt(match[2]);
+            const goalStr = match[3]; // undefined if no goal
             let goal: number | null = null;
 
             const newCount = currentCount + 1;
+            
+            // Build new label preserving bracket format
             let newLabel = `🍅:: ${newCount}`;
-
             if (goalStr) {
                 newLabel += `/${goalStr}`;
                 goal = parseInt(goalStr);
             }
+            
+            // Wrap in brackets if original had brackets
+            if (hasBrackets) {
+                newLabel = `[${newLabel}]`;
+            }
 
-            this.plugin.debugLogger.log('Counter:', currentCount, '->', newCount, 'Goal:', goal);
+            this.plugin.debugLogger.log('Counter:', currentCount, '->', newCount, 'Goal:', goal, 'Brackets:', hasBrackets);
 
-            // Replace the old tag with the new one (removing brackets if present)
+            // Replace the old tag with the new one
             newLine = line.replace(match[0], newLabel);
 
             // Check if goal is met
@@ -627,19 +639,34 @@ class TimerService {
         this.plugin.debugLogger.log('Attempting to complete task:', originalLine);
 
         // First, we need to update the tomato counter in the line BEFORE passing to Tasks API
-        const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+        // Capture groups: (1) opening bracket, (2) count, (3) goal, (4) closing bracket
+        const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
         const match = originalLine.match(tomatoRegex);
 
         let lineWithUpdatedCounter = originalLine;
         if (match) {
-            const currentCount = parseInt(match[1]);
-            const goalStr = match[2];
+            // Preserve bracket format
+            const hasOpenBracket = match[1] === '[';
+            const hasCloseBracket = match[4] === ']';
+            const hasBrackets = hasOpenBracket && hasCloseBracket;
+            
+            const currentCount = parseInt(match[2]);
+            const goalStr = match[3];
             const newCount = currentCount + 1;
+            
+            // Build new label preserving bracket format
             let newLabel = `🍅:: ${newCount}`;
             if (goalStr) {
                 newLabel += `/${goalStr}`;
             }
+            
+            // Wrap in brackets if original had brackets
+            if (hasBrackets) {
+                newLabel = `[${newLabel}]`;
+            }
+            
             lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
+            this.plugin.debugLogger.log('Bracket format preserved:', hasBrackets);
         }
 
         this.plugin.debugLogger.log('Line with updated counter:', lineWithUpdatedCounter);

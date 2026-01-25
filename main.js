@@ -426,13 +426,16 @@ var TimerService = class {
       new import_obsidian.Notice("Task line changed? Could not log time to the exact line.");
       return;
     }
-    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+    const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
     const match = line.match(tomatoRegex);
     let newLine = line;
     let shouldComplete = false;
     if (match) {
-      const currentCount = parseInt(match[1]);
-      const goalStr = match[2];
+      const hasOpenBracket = match[1] === "[";
+      const hasCloseBracket = match[4] === "]";
+      const hasBrackets = hasOpenBracket && hasCloseBracket;
+      const currentCount = parseInt(match[2]);
+      const goalStr = match[3];
       let goal = null;
       const newCount = currentCount + 1;
       let newLabel = `\u{1F345}:: ${newCount}`;
@@ -440,7 +443,10 @@ var TimerService = class {
         newLabel += `/${goalStr}`;
         goal = parseInt(goalStr);
       }
-      this.plugin.debugLogger.log("Counter:", currentCount, "->", newCount, "Goal:", goal);
+      if (hasBrackets) {
+        newLabel = `[${newLabel}]`;
+      }
+      this.plugin.debugLogger.log("Counter:", currentCount, "->", newCount, "Goal:", goal, "Brackets:", hasBrackets);
       newLine = line.replace(match[0], newLabel);
       if (goal !== null && newCount >= goal) {
         this.plugin.debugLogger.log("Goal reached! Checking if task should be completed...");
@@ -468,18 +474,25 @@ var TimerService = class {
   async completeTaskViaTasksAPI(file, lineIdx, originalLine) {
     var _a, _b;
     this.plugin.debugLogger.log("Attempting to complete task:", originalLine);
-    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+    const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
     const match = originalLine.match(tomatoRegex);
     let lineWithUpdatedCounter = originalLine;
     if (match) {
-      const currentCount = parseInt(match[1]);
-      const goalStr = match[2];
+      const hasOpenBracket = match[1] === "[";
+      const hasCloseBracket = match[4] === "]";
+      const hasBrackets = hasOpenBracket && hasCloseBracket;
+      const currentCount = parseInt(match[2]);
+      const goalStr = match[3];
       const newCount = currentCount + 1;
       let newLabel = `\u{1F345}:: ${newCount}`;
       if (goalStr) {
         newLabel += `/${goalStr}`;
       }
+      if (hasBrackets) {
+        newLabel = `[${newLabel}]`;
+      }
       lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
+      this.plugin.debugLogger.log("Bracket format preserved:", hasBrackets);
     }
     this.plugin.debugLogger.log("Line with updated counter:", lineWithUpdatedCounter);
     const tasksPlugin = this.plugin.app.plugins.plugins["obsidian-tasks-plugin"];
