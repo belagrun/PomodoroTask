@@ -126,6 +126,28 @@ The plugin recognizes **unchecked Markdown tasks** containing your configured ta
 * [ ] Also works with asterisk #pomodoro   ← Alternative format
 ```
 
+### Recurring Tasks
+
+Pomodoro Task fully supports **recurring tasks** when used with the [Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks). When a recurring task completes all its Pomodoro cycles:
+
+1. Pomodoro Task uses the **Editor API** to mark the checkbox as complete
+2. The Tasks plugin intercepts this edit and automatically:
+   - Creates the next instance with correct due/scheduled dates
+   - Resets the checkbox to `[ ]`
+   - Preserves all metadata (tags, dates, priority, etc.)
+
+```markdown
+- [ ] Daily review #pomodoro 🍅:: 0/2 🔁 every day
+- [ ] Weekly report #pomodoro 🍅:: 0/3 🔁 every Monday when done
+- [ ] Monthly audit #pomodoro 🍅:: 0/5 🔁 every month on the 1st
+```
+
+**How it works:** Instead of directly modifying the file text, Pomodoro Task uses Obsidian's Editor API to toggle the checkbox. This allows the Tasks plugin to detect the change and process recurrence patterns properly.
+
+**Important:** Add the tomato counter reset (`🍅:: 0/N`) in your recurring task template so the new instance starts with zero cycles.
+
+See [Example/06-recurring-tasks.md](Example/06-recurring-tasks.md) for more examples.
+
 ### Subtasks
 
 Subtasks are automatically detected as tasks indented below the main Pomodoro task:

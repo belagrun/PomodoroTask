@@ -379,44 +379,108 @@ var TimerService = class {
     }
   }
   async logCompletion() {
+    console.log("[PomodoroTask] logCompletion called");
     const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
-    if (file instanceof import_obsidian.TFile) {
-      const content = await this.plugin.app.vault.read(file);
-      const lines = content.split("\n");
-      const lineIdx = this.state.taskLine;
-      if (lineIdx < lines.length) {
-        let line = lines[lineIdx];
-        if (line.includes(this.state.taskText.substring(0, 5))) {
-          const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
-          const match = line.match(tomatoRegex);
-          let newLine = line;
-          if (match) {
-            const currentCount = parseInt(match[1]);
-            const goalStr = match[2];
-            let goal = null;
-            const newCount = currentCount + 1;
-            let newLabel = `\u{1F345}:: ${newCount}`;
-            if (goalStr) {
-              newLabel += `/${goalStr}`;
-              goal = parseInt(goalStr);
-            }
-            newLine = line.replace(match[0], newLabel);
-            if (goal !== null && newCount >= goal) {
-              const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-              if (checkboxRegex.test(newLine)) {
-                newLine = newLine.replace(checkboxRegex, "$1[x]");
-              }
-            }
-          } else {
-            newLine = `${line} \u{1F345}:: 1`;
-          }
-          lines[lineIdx] = newLine;
-          await this.plugin.app.vault.modify(file, lines.join("\n"));
+    if (!(file instanceof import_obsidian.TFile)) {
+      console.log("[PomodoroTask] File not found:", this.state.taskFile);
+      return;
+    }
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split("\n");
+    const lineIdx = this.state.taskLine;
+    if (lineIdx >= lines.length) {
+      console.log("[PomodoroTask] Line index out of bounds");
+      return;
+    }
+    let line = lines[lineIdx];
+    console.log("[PomodoroTask] Current line:", line);
+    if (!line.includes(this.state.taskText.substring(0, 5))) {
+      new import_obsidian.Notice("Task line changed? Could not log time to the exact line.");
+      return;
+    }
+    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+    const match = line.match(tomatoRegex);
+    let newLine = line;
+    let shouldComplete = false;
+    if (match) {
+      const currentCount = parseInt(match[1]);
+      const goalStr = match[2];
+      let goal = null;
+      const newCount = currentCount + 1;
+      let newLabel = `\u{1F345}:: ${newCount}`;
+      if (goalStr) {
+        newLabel += `/${goalStr}`;
+        goal = parseInt(goalStr);
+      }
+      console.log("[PomodoroTask] Counter:", currentCount, "->", newCount, "Goal:", goal);
+      newLine = line.replace(match[0], newLabel);
+      if (goal !== null && newCount >= goal) {
+        console.log("[PomodoroTask] Goal reached! Checking if task should be completed...");
+        const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
+        if (checkboxRegex.test(newLine)) {
+          shouldComplete = true;
+          console.log("[PomodoroTask] Task will be completed");
         } else {
-          new import_obsidian.Notice("Task line changed? Could not log time to the exact line.");
+          console.log("[PomodoroTask] Task does not have unchecked checkbox");
         }
       }
+    } else {
+      newLine = `${line} \u{1F345}:: 1`;
+      console.log("[PomodoroTask] No counter found, starting at 1");
     }
+    console.log("[PomodoroTask] shouldComplete:", shouldComplete);
+    if (shouldComplete) {
+      console.log("[PomodoroTask] Calling completeTaskViaTasksAPI");
+      await this.completeTaskViaTasksAPI(file, lineIdx, line);
+    } else {
+      lines[lineIdx] = newLine;
+      await this.plugin.app.vault.modify(file, lines.join("\n"));
+    }
+  }
+  async completeTaskViaTasksAPI(file, lineIdx, originalLine) {
+    var _a, _b;
+    console.log("[PomodoroTask] Attempting to complete task:", originalLine);
+    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+    const match = originalLine.match(tomatoRegex);
+    let lineWithUpdatedCounter = originalLine;
+    if (match) {
+      const currentCount = parseInt(match[1]);
+      const goalStr = match[2];
+      const newCount = currentCount + 1;
+      let newLabel = `\u{1F345}:: ${newCount}`;
+      if (goalStr) {
+        newLabel += `/${goalStr}`;
+      }
+      lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
+    }
+    console.log("[PomodoroTask] Line with updated counter:", lineWithUpdatedCounter);
+    const tasksPlugin = this.plugin.app.plugins.plugins["obsidian-tasks-plugin"];
+    console.log("[PomodoroTask] Tasks plugin found:", !!tasksPlugin);
+    console.log("[PomodoroTask] Tasks API available:", !!(tasksPlugin == null ? void 0 : tasksPlugin.apiV1));
+    console.log("[PomodoroTask] executeToggleTaskDoneCommand available:", !!((_a = tasksPlugin == null ? void 0 : tasksPlugin.apiV1) == null ? void 0 : _a.executeToggleTaskDoneCommand));
+    if ((_b = tasksPlugin == null ? void 0 : tasksPlugin.apiV1) == null ? void 0 : _b.executeToggleTaskDoneCommand) {
+      const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(lineWithUpdatedCounter, file.path);
+      console.log("[PomodoroTask] Tasks API result:", result);
+      console.log("[PomodoroTask] Result different from input:", result !== lineWithUpdatedCounter);
+      if (result && result !== lineWithUpdatedCounter) {
+        const content2 = await this.plugin.app.vault.read(file);
+        const lines2 = content2.split("\n");
+        const resultLines = result.split("\n");
+        console.log("[PomodoroTask] Result lines count:", resultLines.length);
+        lines2.splice(lineIdx, 1, ...resultLines);
+        await this.plugin.app.vault.modify(file, lines2.join("\n"));
+        console.log("[PomodoroTask] File modified successfully via Tasks API");
+        return;
+      }
+    }
+    console.log("[PomodoroTask] Falling back to direct modification...");
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split("\n");
+    const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
+    let completedLine = lineWithUpdatedCounter.replace(checkboxRegex, "$1[x]");
+    lines[lineIdx] = completedLine;
+    await this.plugin.app.vault.modify(file, lines.join("\n"));
+    console.log("[PomodoroTask] File modified with direct replacement");
   }
 };
 var CycleConfigModal = class extends import_obsidian.Modal {

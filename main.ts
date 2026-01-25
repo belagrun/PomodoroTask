@@ -496,65 +496,158 @@ class TimerService {
     }
 
     async logCompletion() {
+        console.log('[PomodoroTask] logCompletion called');
+        
         // Reload file content to get fresh state
         const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
-        if (file instanceof TFile) {
-            const content = await this.plugin.app.vault.read(file);
-            const lines = content.split('\n');
-            const lineIdx = this.state.taskLine;
+        if (!(file instanceof TFile)) {
+            console.log('[PomodoroTask] File not found:', this.state.taskFile);
+            return;
+        }
 
-            // Check boundaries
-            if (lineIdx < lines.length) {
-                let line = lines[lineIdx];
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        const lineIdx = this.state.taskLine;
 
-                // Check if line looks like our task (basic check)
-                if (line.includes(this.state.taskText.substring(0, 5))) {
+        // Check boundaries
+        if (lineIdx >= lines.length) {
+            console.log('[PomodoroTask] Line index out of bounds');
+            return;
+        }
 
-                    // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
-                    const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
-                    const match = line.match(tomatoRegex);
+        let line = lines[lineIdx];
+        console.log('[PomodoroTask] Current line:', line);
 
-                    let newLine = line;
+        // Check if line looks like our task (basic check)
+        if (!line.includes(this.state.taskText.substring(0, 5))) {
+            new Notice("Task line changed? Could not log time to the exact line.");
+            return;
+        }
 
-                    if (match) {
-                        // Increment existing counter
-                        const currentCount = parseInt(match[1]);
-                        const goalStr = match[2]; // undefined if no goal
-                        let goal: number | null = null;
+        // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
+        const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+        const match = line.match(tomatoRegex);
 
-                        const newCount = currentCount + 1;
-                        let newLabel = `🍅:: ${newCount}`;
+        let newLine = line;
+        let shouldComplete = false;
 
-                        if (goalStr) {
-                            newLabel += `/${goalStr}`;
-                            goal = parseInt(goalStr);
-                        }
+        if (match) {
+            // Increment existing counter
+            const currentCount = parseInt(match[1]);
+            const goalStr = match[2]; // undefined if no goal
+            let goal: number | null = null;
 
-                        // Replace the old tag with the new one (removing brackets if present)
-                        newLine = line.replace(match[0], newLabel);
+            const newCount = currentCount + 1;
+            let newLabel = `🍅:: ${newCount}`;
 
-                        // Completion Logic: If goal met, mark task as checked
-                        if (goal !== null && newCount >= goal) {
-                            // Regex for standard markdown task: "- [ ]" or "* [ ]"
-                            const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-                            if (checkboxRegex.test(newLine)) {
-                                newLine = newLine.replace(checkboxRegex, '$1[x]');
-                            }
-                        }
+            if (goalStr) {
+                newLabel += `/${goalStr}`;
+                goal = parseInt(goalStr);
+            }
 
-                    } else {
-                        // No counter found, start a new one (without brackets)
-                        newLine = `${line} 🍅:: 1`;
-                    }
+            console.log('[PomodoroTask] Counter:', currentCount, '->', newCount, 'Goal:', goal);
 
-                    // Save changes
-                    lines[lineIdx] = newLine;
-                    await this.plugin.app.vault.modify(file, lines.join('\n'));
+            // Replace the old tag with the new one (removing brackets if present)
+            newLine = line.replace(match[0], newLabel);
+
+            // Check if goal is met
+            if (goal !== null && newCount >= goal) {
+                console.log('[PomodoroTask] Goal reached! Checking if task should be completed...');
+                const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
+                if (checkboxRegex.test(newLine)) {
+                    shouldComplete = true;
+                    console.log('[PomodoroTask] Task will be completed');
                 } else {
-                    new Notice("Task line changed? Could not log time to the exact line.");
+                    console.log('[PomodoroTask] Task does not have unchecked checkbox');
                 }
             }
+        } else {
+            // No counter found, start a new one (without brackets)
+            newLine = `${line} 🍅:: 1`;
+            console.log('[PomodoroTask] No counter found, starting at 1');
         }
+
+        console.log('[PomodoroTask] shouldComplete:', shouldComplete);
+
+        // If task should be completed, use Tasks API BEFORE updating the file
+        if (shouldComplete) {
+            console.log('[PomodoroTask] Calling completeTaskViaTasksAPI');
+            await this.completeTaskViaTasksAPI(file, lineIdx, line);
+        } else {
+            // Just update the tomato counter
+            lines[lineIdx] = newLine;
+            await this.plugin.app.vault.modify(file, lines.join('\n'));
+        }
+    }
+
+    async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string) {
+        console.log('[PomodoroTask] Attempting to complete task:', originalLine);
+        
+        // First, we need to update the tomato counter in the line BEFORE passing to Tasks API
+        const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
+        const match = originalLine.match(tomatoRegex);
+        
+        let lineWithUpdatedCounter = originalLine;
+        if (match) {
+            const currentCount = parseInt(match[1]);
+            const goalStr = match[2];
+            const newCount = currentCount + 1;
+            let newLabel = `🍅:: ${newCount}`;
+            if (goalStr) {
+                newLabel += `/${goalStr}`;
+            }
+            lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
+        }
+        
+        console.log('[PomodoroTask] Line with updated counter:', lineWithUpdatedCounter);
+        
+        // Try to use the Tasks plugin API (best option for recurrence)
+        // @ts-ignore - accessing plugin API
+        const tasksPlugin = this.plugin.app.plugins.plugins['obsidian-tasks-plugin'];
+        
+        console.log('[PomodoroTask] Tasks plugin found:', !!tasksPlugin);
+        console.log('[PomodoroTask] Tasks API available:', !!tasksPlugin?.apiV1);
+        console.log('[PomodoroTask] executeToggleTaskDoneCommand available:', !!tasksPlugin?.apiV1?.executeToggleTaskDoneCommand);
+        
+        if (tasksPlugin?.apiV1?.executeToggleTaskDoneCommand) {
+            // Use the Tasks API to toggle the task - this handles recurrence properly!
+            // Pass the line with updated counter so Tasks can process it
+            const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(lineWithUpdatedCounter, file.path);
+            
+            console.log('[PomodoroTask] Tasks API result:', result);
+            console.log('[PomodoroTask] Result different from input:', result !== lineWithUpdatedCounter);
+            
+            if (result && result !== lineWithUpdatedCounter) {
+                // Read file again to get current state
+                const content = await this.plugin.app.vault.read(file);
+                const lines = content.split('\n');
+                
+                // The result may contain multiple lines (if recurring task created new instance)
+                const resultLines = result.split('\n');
+                console.log('[PomodoroTask] Result lines count:', resultLines.length);
+                
+                // Replace the original line with the result (may be multiple lines)
+                lines.splice(lineIdx, 1, ...resultLines);
+                
+                await this.plugin.app.vault.modify(file, lines.join('\n'));
+                console.log('[PomodoroTask] File modified successfully via Tasks API');
+                return;
+            }
+        }
+
+        console.log('[PomodoroTask] Falling back to direct modification...');
+        
+        // Fallback: Update the file directly with the updated counter and mark complete
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        
+        // Update with counter and mark as complete
+        const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
+        let completedLine = lineWithUpdatedCounter.replace(checkboxRegex, '$1[x]');
+        
+        lines[lineIdx] = completedLine;
+        await this.plugin.app.vault.modify(file, lines.join('\n'));
+        console.log('[PomodoroTask] File modified with direct replacement');
     }
 }
 

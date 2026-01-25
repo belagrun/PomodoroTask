@@ -31,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🔄 **Recurring Tasks Support**: Tasks with recurrence patterns (🔁 every ...) now work correctly with the Tasks plugin
+  - When a recurring task reaches its Pomodoro goal (e.g., `🍅:: 2/2`), Pomodoro Task uses the **Editor API** to toggle the checkbox
+  - This allows the Tasks plugin to intercept the change and properly handle recurrence logic
+  - The Tasks plugin automatically creates the next instance with correct dates based on the recurrence pattern
+  - Supports all Tasks plugin recurrence patterns: `every day`, `every day when done`, `every week on Monday`, `every month on the 1st`, etc.
+  - Simply add a tomato counter reset (`🍅:: 0/N`) to your recurring task template
+  - See [Example/06-recurring-tasks.md](Example/06-recurring-tasks.md) for usage examples
+  
+**Technical:** Uses `editor.replaceRange()` instead of direct file modification to ensure proper event propagation
+
 ### Planned
 - Long break automation after X work sessions
 - Daily/weekly statistics dashboard
