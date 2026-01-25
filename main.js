@@ -420,7 +420,7 @@ var TimerService = class {
       this.plugin.debugLogger.log("Line index out of bounds");
       return;
     }
-    let line = lines[lineIdx];
+    const line = lines[lineIdx];
     this.plugin.debugLogger.log("Current line:", line);
     if (!line.includes(this.state.taskText.substring(0, 5))) {
       new import_obsidian.Notice("Task line changed? Could not log time to the exact line.");
@@ -536,7 +536,7 @@ var TimerService = class {
     const content = await this.plugin.app.vault.read(file);
     const lines = content.split("\n");
     const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-    let completedLine = lineWithUpdatedCounter.replace(checkboxRegex, "$1[x]");
+    const completedLine = lineWithUpdatedCounter.replace(checkboxRegex, "$1[x]");
     lines[lineIdx] = completedLine;
     await this.plugin.app.vault.modify(file, lines.join("\n"));
     this.plugin.debugLogger.log("File modified with direct replacement");
@@ -918,7 +918,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
             } else {
               this.markerFollowMode.add(m.name);
             }
-            this.setupScrollHandler(currentFile, container);
+            this.setupScrollHandler(currentFile);
             void this.renderMarkers(container);
           };
           const editBtn = item.createSpan({ cls: "pomodoro-marker-edit", text: "\u270E" });
@@ -945,7 +945,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
             }
           };
         });
-        this.setupScrollHandler(currentFile, container);
+        this.setupScrollHandler(currentFile);
         const addBtn = contentArea.createDiv({ cls: "pomodoro-marker-add-btn" });
         addBtn.createSpan({ text: "\u2795" });
         addBtn.createSpan({ text: " Add marker here" });
@@ -1082,7 +1082,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     }
   }
   // ---- MARKER FOLLOW MODE ----
-  setupScrollHandler(file, container) {
+  setupScrollHandler(file) {
     this.removeScrollHandler();
     if (this.markerFollowMode.size === 0) {
       return;
@@ -1097,14 +1097,14 @@ var PomodoroView = class extends import_obsidian.ItemView {
         if (isMovingMarker)
           return;
         isMovingMarker = true;
-        void this.moveFollowingMarkers(file, container).finally(() => {
+        void this.moveFollowingMarkers(file).finally(() => {
           isMovingMarker = false;
         });
       }, 100);
     };
     document.addEventListener("scroll", this.scrollHandler, true);
   }
-  async moveFollowingMarkers(file, container) {
+  async moveFollowingMarkers(file) {
     if (this.markerFollowMode.size === 0)
       return;
     const widget = document.querySelector(".pomodoro-marker-widget");
@@ -1423,7 +1423,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     container.addClass("pomodoro-cycle-editing");
     const iconSpan = container.createSpan();
     iconSpan.innerText = "\u{1F345}";
-    const cycleLabel = container.createSpan({ cls: "pomodoro-cycle-edit-label", text: " cycle: " });
+    container.createSpan({ cls: "pomodoro-cycle-edit-label", text: " cycle: " });
     const cycleInput = container.createEl("input", {
       type: "number",
       cls: "pomodoro-cycle-input",
@@ -1431,7 +1431,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     });
     cycleInput.min = "0";
     cycleInput.style.width = "40px";
-    const totalLabel = container.createSpan({ cls: "pomodoro-cycle-edit-label", text: " total: " });
+    container.createSpan({ cls: "pomodoro-cycle-edit-label", text: " total: " });
     const totalInput = container.createEl("input", {
       type: "number",
       cls: "pomodoro-cycle-input",
@@ -1482,7 +1482,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const content = await this.plugin.app.vault.read(file);
     const lines = content.split("\n");
     if (lineIdx < lines.length) {
-      let line = lines[lineIdx];
+      const line = lines[lineIdx];
       const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
       let newLabel = `\u{1F345}:: ${cycle}/${total}`;
       if (hasBrackets) {
@@ -1516,7 +1516,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const content = await this.plugin.app.vault.read(file);
     const lines = content.split("\n");
     if (lineIdx < lines.length) {
-      let line = lines[lineIdx];
+      const line = lines[lineIdx];
       const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
       if (!tomatoRegex.test(line)) {
         const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
@@ -1889,7 +1889,7 @@ var PomodoroTaskPlugin = class extends import_obsidian.Plugin {
       POMODORO_VIEW_TYPE,
       (leaf) => new PomodoroView(leaf, this)
     );
-    this.addRibbonIcon("alarm-clock", "Pomodoro task", (evt) => {
+    this.addRibbonIcon("alarm-clock", "Pomodoro task", () => {
       void this.activateView();
     });
     this.addCommand({

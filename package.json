@@ -1,11 +1,12 @@
 {
   "name": "pomodoro-task",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Obsidian Pomodoro Task Plugin",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "lint": "eslint . --ext .ts",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [],
@@ -17,6 +18,7 @@
     "@typescript-eslint/parser": "5.29.0",
     "builtin-modules": "3.3.0",
     "esbuild": "0.17.3",
+    "eslint": "^8.57.1",
     "eslint-plugin-obsidian": "^2.29.0",
     "obsidian": "latest",
     "tslib": "2.4.0",

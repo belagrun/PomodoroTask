@@ -558,7 +558,7 @@ class TimerService {
             return;
         }
 
-        let line = lines[lineIdx];
+        const line = lines[lineIdx];
         this.plugin.debugLogger.log('Current line:', line);
 
         // Check if line looks like our task (basic check)
@@ -739,7 +739,7 @@ class TimerService {
 
         // Update with counter and mark as complete
         const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-        let completedLine = lineWithUpdatedCounter.replace(checkboxRegex, '$1[x]');
+        const completedLine = lineWithUpdatedCounter.replace(checkboxRegex, '$1[x]');
 
         lines[lineIdx] = completedLine;
         await this.plugin.app.vault.modify(file, lines.join('\n'));
@@ -869,13 +869,13 @@ export class PomodoroView extends ItemView {
     plugin: PomodoroTaskPlugin;
     showSubtasks: boolean;
     floatingStats: HTMLElement | null = null;
-    currentZoom: number = 1.0;
-    private renderCounter: number = 0;
+    currentZoom = 1.0;
+    private renderCounter = 0;
     private markdownComponents: Component[] = [];
 
     // Floating Marker State
-    markerWidgetExpanded: boolean = false;
-    private isRenderingMarkers: boolean = false;
+    markerWidgetExpanded = false;
+    private isRenderingMarkers = false;
     // Track which markers are in "follow" mode (by name)
     private markerFollowMode: Set<string> = new Set();
     private scrollHandler: (() => void) | null = null;
@@ -899,7 +899,7 @@ export class PomodoroView extends ItemView {
                 evt.preventDefault();
                 const delta = evt.deltaY > 0 ? -0.1 : 0.1;
                 this.currentZoom = Math.min(Math.max(0.5, this.currentZoom + delta), 2.5);
-                // @ts-ignore
+                // @ts-ignore - zoom property exists on HTMLElement but is not in Obsidian typings
                 this.contentEl.style.zoom = this.currentZoom;
             }
         }, { passive: false });
@@ -1280,7 +1280,7 @@ export class PomodoroView extends ItemView {
                         } else {
                             this.markerFollowMode.add(m.name);
                         }
-                        this.setupScrollHandler(currentFile, container);
+                        this.setupScrollHandler(currentFile);
                         void this.renderMarkers(container);
                     };
 
@@ -1312,7 +1312,7 @@ export class PomodoroView extends ItemView {
                 });
 
                 // Setup scroll handler for following markers
-                this.setupScrollHandler(currentFile, container);
+                this.setupScrollHandler(currentFile);
 
                 // Add Button
                 const addBtn = contentArea.createDiv({ cls: 'pomodoro-marker-add-btn' });
@@ -1342,7 +1342,7 @@ export class PomodoroView extends ItemView {
                         return;
                     }
 
-                    // @ts-ignore
+                    // @ts-ignore - Obsidian leaf views are not strongly typed to MarkdownView
                     const view = targetLeaf.view as MarkdownView;
 
                     // Ensure we are in Editing mode
@@ -1377,10 +1377,10 @@ export class PomodoroView extends ItemView {
                                 const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
 
                                 for (const x of xCandidates) {
-                                    // @ts-ignore - CodeMirror 6 posAtCoords
+                                    // @ts-ignore - CodeMirror 6 posAtCoords not in bundled types
                                     const pos = cmEditor.posAtCoords({ x: x, y: safeY });
                                     if (pos !== null && pos !== undefined) {
-                                        // @ts-ignore
+                                        // @ts-ignore - CodeMirror 6 lineAt missing from bundled types
                                         const line = cmEditor.state.doc.lineAt(pos);
                                         detectedPos = { line: line.number - 1 }; // 0-indexed
                                         break outerLoop;
@@ -1425,7 +1425,7 @@ export class PomodoroView extends ItemView {
         return lines.findIndex(line => line.includes(target));
     }
 
-    async addMarker(file: TFile, overrideLine: number = -1) {
+    async addMarker(file: TFile, overrideLine = -1) {
         // Find the leaf that has this file open to get the cursor
         let targetLeaf: WorkspaceLeaf | null = null;
         this.plugin.app.workspace.iterateAllLeaves(leaf => {
@@ -1448,7 +1448,7 @@ export class PomodoroView extends ItemView {
             if (insertLine > lines.length) insertLine = lines.length;
         } else if (targetLeaf) {
             // Fallback to cursor
-            // @ts-ignore
+            // @ts-ignore - targetLeaf.view is MarkdownView but typings are loose
             const view = targetLeaf.view as MarkdownView;
             const cursor = view.editor.getCursor();
             insertLine = cursor.line;
@@ -1495,7 +1495,7 @@ export class PomodoroView extends ItemView {
 
     // ---- MARKER FOLLOW MODE ----
 
-    private setupScrollHandler(file: TFile, container: Element) {
+    private setupScrollHandler(file: TFile) {
         // Remove existing handler first
         this.removeScrollHandler();
 
@@ -1516,7 +1516,7 @@ export class PomodoroView extends ItemView {
                 if (isMovingMarker) return;
                 isMovingMarker = true;
 
-                void this.moveFollowingMarkers(file, container).finally(() => {
+                void this.moveFollowingMarkers(file).finally(() => {
                     isMovingMarker = false;
                 });
             }, 100); // Debounce 100ms
@@ -1526,7 +1526,7 @@ export class PomodoroView extends ItemView {
         document.addEventListener('scroll', this.scrollHandler, true);
     }
 
-    private async moveFollowingMarkers(file: TFile, container: Element) {
+    private async moveFollowingMarkers(file: TFile) {
         if (this.markerFollowMode.size === 0) return;
 
         const widget = document.querySelector('.pomodoro-marker-widget');
@@ -1554,7 +1554,7 @@ export class PomodoroView extends ItemView {
         if (view.getMode() !== 'source') return;
 
         const contentRect = view.contentEl.getBoundingClientRect();
-        // @ts-ignore - Access CodeMirror 6
+        // @ts-ignore - Access CodeMirror 6 editor instance not typed in Obsidian
         const cmEditor = view.editor.cm;
         if (!cmEditor) return;
 
@@ -1579,10 +1579,10 @@ export class PomodoroView extends ItemView {
                 const safeY = Math.max(contentRect.top + 5, Math.min(targetY + dy, contentRect.bottom - 5));
 
                 for (const x of xCandidates) {
-                    // @ts-ignore
+                    // @ts-ignore - CodeMirror posAtCoords not typed in Obsidian
                     const pos = cmEditor.posAtCoords({ x: x, y: safeY });
                     if (pos !== null && pos !== undefined) {
-                        // @ts-ignore
+                        // @ts-ignore - CodeMirror lineAt missing from bundled types
                         const line = cmEditor.state.doc.lineAt(pos);
                         detectedLine = line.number - 1; // 0-indexed
                         break outerLoop;
@@ -1772,9 +1772,9 @@ export class PomodoroView extends ItemView {
 
         settingsBtn.onclick = (e) => {
             e.stopPropagation();
-            // @ts-ignore
+            // @ts-ignore - Obsidian setting API not fully typed
             this.plugin.app.setting.open();
-            // @ts-ignore
+            // @ts-ignore - Obsidian setting API not fully typed
             this.plugin.app.setting.openTabById(this.plugin.manifest.id);
         };
 
@@ -1996,7 +1996,7 @@ export class PomodoroView extends ItemView {
         const iconSpan = container.createSpan();
         iconSpan.innerText = '🍅';
 
-        const cycleLabel = container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' cycle: ' });
+        container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' cycle: ' });
 
         const cycleInput = container.createEl('input', {
             type: 'number',
@@ -2006,7 +2006,7 @@ export class PomodoroView extends ItemView {
         cycleInput.min = '0';
         cycleInput.style.width = '40px';
 
-        const totalLabel = container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' total: ' });
+        container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' total: ' });
 
         const totalInput = container.createEl('input', {
             type: 'number',
@@ -2071,7 +2071,7 @@ export class PomodoroView extends ItemView {
         const lines = content.split('\n');
 
         if (lineIdx < lines.length) {
-            let line = lines[lineIdx];
+            const line = lines[lineIdx];
             const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
 
             // Build new label
@@ -2113,7 +2113,7 @@ export class PomodoroView extends ItemView {
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
         if (lineIdx < lines.length) {
-            let line = lines[lineIdx];
+            const line = lines[lineIdx];
             const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
 
             if (!tomatoRegex.test(line)) {
@@ -2163,9 +2163,9 @@ export class PomodoroView extends ItemView {
         settingsBtn.ariaLabel = 'Settings';
         setIcon(settingsBtn, 'settings');
         settingsBtn.onclick = () => {
-            // @ts-ignore
+            // @ts-ignore - Obsidian setting API not fully typed
             this.plugin.app.setting.open();
-            // @ts-ignore
+            // @ts-ignore - Obsidian setting API not fully typed
             this.plugin.app.setting.openTabById(this.plugin.manifest.id);
         };
 
@@ -2649,7 +2649,7 @@ export default class PomodoroTaskPlugin extends Plugin {
             (leaf) => new PomodoroView(leaf, this)
         );
 
-        this.addRibbonIcon('alarm-clock', 'Pomodoro task', (evt: MouseEvent) => {
+        this.addRibbonIcon('alarm-clock', 'Pomodoro task', () => {
             void this.activateView();
         });
 
