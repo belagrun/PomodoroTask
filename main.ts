@@ -21,6 +21,8 @@ interface PomodoroTaskSettings {
     soundPause: string;
     // UI Settings
     markerWidgetPos: { x: number, y: number } | null;
+    // Debug Settings
+    enableDebugLogs: boolean;
 }
 
 const DEFAULT_SETTINGS: PomodoroTaskSettings = {
@@ -39,7 +41,48 @@ const DEFAULT_SETTINGS: PomodoroTaskSettings = {
     soundWorkEnd: 'none',
     soundBreakEnd: 'gong',
     soundPause: 'bell',
-    markerWidgetPos: null
+    markerWidgetPos: null,
+    enableDebugLogs: false
+}
+
+// --- DEBUG LOGGING ---
+
+class DebugLogger {
+    private plugin: PomodoroTaskPlugin;
+    private logs: string[] = [];
+    private maxLogs = 100;
+
+    constructor(plugin: PomodoroTaskPlugin) {
+        this.plugin = plugin;
+    }
+
+    log(...args: unknown[]) {
+        if (!this.plugin.settings.enableDebugLogs) return;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        const message = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        ).join(' ');
+        
+        const logEntry = `[${timestamp}] ${message}`;
+        
+        // Add to internal log storage
+        this.logs.push(logEntry);
+        if (this.logs.length > this.maxLogs) {
+            this.logs.shift();
+        }
+        
+        // Also output to console
+        console.log('[PomodoroTask]', ...args);
+    }
+
+    getLogs(): string {
+        return this.logs.join('\n');
+    }
+
+    clear() {
+        this.logs = [];
+    }
 }
 
 // --- SOUNDS ---
@@ -496,12 +539,12 @@ class TimerService {
     }
 
     async logCompletion() {
-        console.log('[PomodoroTask] logCompletion called');
+        this.plugin.debugLogger.log('logCompletion called');
 
         // Reload file content to get fresh state
         const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
         if (!(file instanceof TFile)) {
-            console.log('[PomodoroTask] File not found:', this.state.taskFile);
+            this.plugin.debugLogger.log('File not found:', this.state.taskFile);
             return;
         }
 
@@ -511,12 +554,12 @@ class TimerService {
 
         // Check boundaries
         if (lineIdx >= lines.length) {
-            console.log('[PomodoroTask] Line index out of bounds');
+            this.plugin.debugLogger.log('Line index out of bounds');
             return;
         }
 
         let line = lines[lineIdx];
-        console.log('[PomodoroTask] Current line:', line);
+        this.plugin.debugLogger.log('Current line:', line);
 
         // Check if line looks like our task (basic check)
         if (!line.includes(this.state.taskText.substring(0, 5))) {
@@ -545,33 +588,33 @@ class TimerService {
                 goal = parseInt(goalStr);
             }
 
-            console.log('[PomodoroTask] Counter:', currentCount, '->', newCount, 'Goal:', goal);
+            this.plugin.debugLogger.log('Counter:', currentCount, '->', newCount, 'Goal:', goal);
 
             // Replace the old tag with the new one (removing brackets if present)
             newLine = line.replace(match[0], newLabel);
 
             // Check if goal is met
             if (goal !== null && newCount >= goal) {
-                console.log('[PomodoroTask] Goal reached! Checking if task should be completed...');
+                this.plugin.debugLogger.log('Goal reached! Checking if task should be completed...');
                 const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
                 if (checkboxRegex.test(newLine)) {
                     shouldComplete = true;
-                    console.log('[PomodoroTask] Task will be completed');
+                    this.plugin.debugLogger.log('Task will be completed');
                 } else {
-                    console.log('[PomodoroTask] Task does not have unchecked checkbox');
+                    this.plugin.debugLogger.log('Task does not have unchecked checkbox');
                 }
             }
         } else {
             // No counter found, start a new one (without brackets)
             newLine = `${line} 🍅:: 1`;
-            console.log('[PomodoroTask] No counter found, starting at 1');
+            this.plugin.debugLogger.log('No counter found, starting at 1');
         }
 
-        console.log('[PomodoroTask] shouldComplete:', shouldComplete);
+        this.plugin.debugLogger.log('shouldComplete:', shouldComplete);
 
         // If task should be completed, use Tasks API BEFORE updating the file
         if (shouldComplete) {
-            console.log('[PomodoroTask] Calling completeTaskViaTasksAPI');
+            this.plugin.debugLogger.log('Calling completeTaskViaTasksAPI');
             await this.completeTaskViaTasksAPI(file, lineIdx, line);
         } else {
             // Just update the tomato counter
@@ -581,7 +624,7 @@ class TimerService {
     }
 
     async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string) {
-        console.log('[PomodoroTask] Attempting to complete task:', originalLine);
+        this.plugin.debugLogger.log('Attempting to complete task:', originalLine);
 
         // First, we need to update the tomato counter in the line BEFORE passing to Tasks API
         const tomatoRegex = /\[?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?\]?/;
@@ -599,23 +642,23 @@ class TimerService {
             lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
         }
 
-        console.log('[PomodoroTask] Line with updated counter:', lineWithUpdatedCounter);
+        this.plugin.debugLogger.log('Line with updated counter:', lineWithUpdatedCounter);
 
         // Try to use the Tasks plugin API (best option for recurrence)
         // @ts-ignore - accessing plugin API
         const tasksPlugin = this.plugin.app.plugins.plugins['obsidian-tasks-plugin'];
 
-        console.log('[PomodoroTask] Tasks plugin found:', !!tasksPlugin);
-        console.log('[PomodoroTask] Tasks API available:', !!tasksPlugin?.apiV1);
-        console.log('[PomodoroTask] executeToggleTaskDoneCommand available:', !!tasksPlugin?.apiV1?.executeToggleTaskDoneCommand);
+        this.plugin.debugLogger.log('Tasks plugin found:', !!tasksPlugin);
+        this.plugin.debugLogger.log('Tasks API available:', !!tasksPlugin?.apiV1);
+        this.plugin.debugLogger.log('executeToggleTaskDoneCommand available:', !!tasksPlugin?.apiV1?.executeToggleTaskDoneCommand);
 
         if (tasksPlugin?.apiV1?.executeToggleTaskDoneCommand) {
             // Use the Tasks API to toggle the task - this handles recurrence properly!
             // Pass the line with updated counter so Tasks can process it
             const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(lineWithUpdatedCounter, file.path);
 
-            console.log('[PomodoroTask] Tasks API result:', result);
-            console.log('[PomodoroTask] Result different from input:', result !== lineWithUpdatedCounter);
+            this.plugin.debugLogger.log('Tasks API result:', result);
+            this.plugin.debugLogger.log('Result different from input:', result !== lineWithUpdatedCounter);
 
             if (result && result !== lineWithUpdatedCounter) {
                 // Read file again to get current state
@@ -624,18 +667,18 @@ class TimerService {
 
                 // The result may contain multiple lines (if recurring task created new instance)
                 const resultLines = result.split('\n');
-                console.log('[PomodoroTask] Result lines count:', resultLines.length);
+                this.plugin.debugLogger.log('Result lines count:', resultLines.length);
 
                 // Replace the original line with the result (may be multiple lines)
                 lines.splice(lineIdx, 1, ...resultLines);
 
                 await this.plugin.app.vault.modify(file, lines.join('\n'));
-                console.log('[PomodoroTask] File modified successfully via Tasks API');
+                this.plugin.debugLogger.log('File modified successfully via Tasks API');
                 return;
             }
         }
 
-        console.log('[PomodoroTask] Falling back to direct modification...');
+        this.plugin.debugLogger.log('Falling back to direct modification...');
 
         // Fallback: Update the file directly with the updated counter and mark complete
         const content = await this.plugin.app.vault.read(file);
@@ -647,7 +690,7 @@ class TimerService {
 
         lines[lineIdx] = completedLine;
         await this.plugin.app.vault.modify(file, lines.join('\n'));
-        console.log('[PomodoroTask] File modified with direct replacement');
+        this.plugin.debugLogger.log('File modified with direct replacement');
     }
 }
 
@@ -2429,9 +2472,13 @@ export default class PomodoroTaskPlugin extends Plugin {
     settings: PomodoroTaskSettings;
     stats: PomodoroStats;
     timerService: TimerService;
+    debugLogger: DebugLogger;
 
     async onload() {
         await this.loadSettings();
+
+        // Initialize debug logger
+        this.debugLogger = new DebugLogger(this);
 
         // Ensure stats are loaded
         if (!this.stats) this.stats = { ...DEFAULT_STATS };
@@ -2805,6 +2852,76 @@ class PomodoroSettingTab extends PluginSettingTab {
                     await this.plugin.saveAllData();
                     this.plugin.timerService.soundService.play(val);
                 }));
+
+        // Debug Section
+        new Setting(containerEl)
+            .setName('Debug')
+            .setHeading();
+
+        let logsContainer: HTMLElement | null = null;
+        let logsTextArea: HTMLTextAreaElement | null = null;
+
+        new Setting(containerEl)
+            .setName('Enable debug logs')
+            .setDesc('When enabled, detailed logs will be visible in the console (Ctrl+Shift+I) and below')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.enableDebugLogs)
+                .onChange(async (value) => {
+                    this.plugin.settings.enableDebugLogs = value;
+                    await this.plugin.saveAllData();
+                    
+                    if (logsContainer) {
+                        if (value) {
+                            logsContainer.removeClass('pomodoro-hidden');
+                        } else {
+                            logsContainer.addClass('pomodoro-hidden');
+                        }
+                    }
+                }));
+
+        // Logs display container
+        logsContainer = containerEl.createDiv({ cls: 'pomodoro-debug-logs-container' });
+        if (!this.plugin.settings.enableDebugLogs) {
+            logsContainer.addClass('pomodoro-hidden');
+        }
+
+        const logsHeader = logsContainer.createDiv({ cls: 'pomodoro-debug-logs-header' });
+        logsHeader.createSpan({ text: 'Debug Logs', cls: 'pomodoro-debug-logs-title' });
+
+        const logsActions = logsHeader.createDiv({ cls: 'pomodoro-debug-logs-actions' });
+        
+        const refreshBtn = logsActions.createEl('button', { text: '🔄 Refresh', cls: 'pomodoro-debug-btn' });
+        refreshBtn.onclick = () => {
+            if (logsTextArea) {
+                logsTextArea.value = this.plugin.debugLogger.getLogs() || 'No logs yet. Perform some actions to generate logs.';
+            }
+        };
+
+        const copyBtn = logsActions.createEl('button', { text: '📋 Copy', cls: 'pomodoro-debug-btn' });
+        copyBtn.onclick = () => {
+            if (logsTextArea) {
+                navigator.clipboard.writeText(logsTextArea.value);
+                new Notice('Logs copied to clipboard!');
+            }
+        };
+
+        const clearBtn = logsActions.createEl('button', { text: '🗑️ Clear', cls: 'pomodoro-debug-btn' });
+        clearBtn.onclick = () => {
+            this.plugin.debugLogger.clear();
+            if (logsTextArea) {
+                logsTextArea.value = 'Logs cleared.';
+            }
+        };
+
+        logsTextArea = logsContainer.createEl('textarea', {
+            cls: 'pomodoro-debug-logs-textarea',
+            attr: {
+                readonly: 'true',
+                rows: '10',
+                placeholder: 'Debug logs will appear here when actions are performed...'
+            }
+        });
+        logsTextArea.value = this.plugin.debugLogger.getLogs() || 'No logs yet. Perform some actions to generate logs.';
     }
 }
 

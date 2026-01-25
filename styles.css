@@ -760,3 +760,60 @@
     display: none !important;
 }
 
+/* Debug Logs Section */
+.pomodoro-debug-logs-container {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--background-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.pomodoro-debug-logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.pomodoro-debug-logs-title {
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.pomodoro-debug-logs-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.pomodoro-debug-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    background: var(--interactive-normal);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.pomodoro-debug-btn:hover {
+    background: var(--interactive-hover);
+}
+
+.pomodoro-debug-logs-textarea {
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+    padding: 10px;
+    font-family: var(--font-monospace);
+    font-size: 11px;
+    line-height: 1.4;
+    background: var(--background-primary);
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    resize: vertical;
+    overflow-y: auto;
+}
+
