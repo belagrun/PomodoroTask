@@ -58,20 +58,20 @@ class DebugLogger {
 
     log(...args: unknown[]) {
         if (!this.plugin.settings.enableDebugLogs) return;
-        
+
         const timestamp = new Date().toLocaleTimeString();
-        const message = args.map(arg => 
+        const message = args.map(arg =>
             typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
         ).join(' ');
-        
+
         const logEntry = `[${timestamp}] ${message}`;
-        
+
         // Add to internal log storage
         this.logs.push(logEntry);
         if (this.logs.length > this.maxLogs) {
             this.logs.shift();
         }
-        
+
         // Also output to console
         console.log('[PomodoroTask]', ...args);
     }
@@ -580,21 +580,21 @@ class TimerService {
             const hasOpenBracket = match[1] === '[';
             const hasCloseBracket = match[4] === ']';
             const hasBrackets = hasOpenBracket && hasCloseBracket;
-            
+
             // Increment existing counter
             const currentCount = parseInt(match[2]);
             const goalStr = match[3]; // undefined if no goal
             let goal: number | null = null;
 
             const newCount = currentCount + 1;
-            
+
             // Build new label preserving bracket format
             let newLabel = `🍅:: ${newCount}`;
             if (goalStr) {
                 newLabel += `/${goalStr}`;
                 goal = parseInt(goalStr);
             }
-            
+
             // Wrap in brackets if original had brackets
             if (hasBrackets) {
                 newLabel = `[${newLabel}]`;
@@ -649,22 +649,22 @@ class TimerService {
             const hasOpenBracket = match[1] === '[';
             const hasCloseBracket = match[4] === ']';
             const hasBrackets = hasOpenBracket && hasCloseBracket;
-            
+
             const currentCount = parseInt(match[2]);
             const goalStr = match[3];
             const newCount = currentCount + 1;
-            
+
             // Build new label preserving bracket format
             let newLabel = `🍅:: ${newCount}`;
             if (goalStr) {
                 newLabel += `/${goalStr}`;
             }
-            
+
             // Wrap in brackets if original had brackets
             if (hasBrackets) {
                 newLabel = `[${newLabel}]`;
             }
-            
+
             lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
             this.plugin.debugLogger.log('Bracket format preserved:', hasBrackets);
         }
@@ -709,12 +709,12 @@ class TimerService {
                             const hasCloseBracket = tomatoMatch[4] === ']';
                             const hasBrackets = hasOpenBracket && hasCloseBracket;
                             const goal = tomatoMatch[3];
-                            
+
                             let resetLabel = `🍅:: 0/${goal}`;
                             if (hasBrackets) {
                                 resetLabel = `[${resetLabel}]`;
                             }
-                            
+
                             this.plugin.debugLogger.log('Resetting new task counter to:', resetLabel);
                             return resultLine.replace(tomatoMatch[0], resetLabel);
                         }
@@ -1967,7 +1967,7 @@ export class PomodoroView extends ItemView {
             // Make it clickable to edit
             valueSpan.addClass('pomodoro-clickable-value');
             valueSpan.title = "Click to edit pomodoro cycles";
-            
+
             valueSpan.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1997,9 +1997,9 @@ export class PomodoroView extends ItemView {
         iconSpan.innerText = '🍅';
 
         const cycleLabel = container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' cycle: ' });
-        
-        const cycleInput = container.createEl('input', { 
-            type: 'number', 
+
+        const cycleInput = container.createEl('input', {
+            type: 'number',
             cls: 'pomodoro-cycle-input',
             value: String(currentCycle)
         });
@@ -2007,9 +2007,9 @@ export class PomodoroView extends ItemView {
         cycleInput.style.width = '40px';
 
         const totalLabel = container.createSpan({ cls: 'pomodoro-cycle-edit-label', text: ' total: ' });
-        
-        const totalInput = container.createEl('input', { 
-            type: 'number', 
+
+        const totalInput = container.createEl('input', {
+            type: 'number',
             cls: 'pomodoro-cycle-input',
             value: totalCycles !== null ? String(totalCycles) : ''
         });
@@ -2028,7 +2028,7 @@ export class PomodoroView extends ItemView {
         const finish = async () => {
             const newCycle = parseInt(cycleInput.value);
             const newTotal = parseInt(totalInput.value);
-            
+
             if (!isNaN(newCycle) && newCycle >= 0) {
                 if (!isNaN(newTotal) && newTotal > 0) {
                     await this.updateTaskCycleValues(file, lineIdx, newCycle, newTotal, hasBrackets);
@@ -2069,11 +2069,11 @@ export class PomodoroView extends ItemView {
     async updateTaskCycleValues(file: TFile, lineIdx: number, cycle: number, total: number, hasBrackets: boolean) {
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
-        
+
         if (lineIdx < lines.length) {
             let line = lines[lineIdx];
             const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
-            
+
             // Build new label
             let newLabel = `🍅:: ${cycle}/${total}`;
             if (hasBrackets) {
@@ -3027,7 +3027,7 @@ class PomodoroSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.enableDebugLogs = value;
                     await this.plugin.saveAllData();
-                    
+
                     if (logsContainer) {
                         if (value) {
                             logsContainer.removeClass('pomodoro-hidden');
@@ -3047,7 +3047,7 @@ class PomodoroSettingTab extends PluginSettingTab {
         logsHeader.createSpan({ text: 'Debug Logs', cls: 'pomodoro-debug-logs-title' });
 
         const logsActions = logsHeader.createDiv({ cls: 'pomodoro-debug-logs-actions' });
-        
+
         const refreshBtn = logsActions.createEl('button', { text: '🔄 Refresh', cls: 'pomodoro-debug-btn' });
         refreshBtn.onclick = () => {
             if (logsTextArea) {
