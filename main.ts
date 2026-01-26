@@ -2153,7 +2153,7 @@ export class PomodoroView extends ItemView {
 
         const header = container.createDiv({ cls: 'pomodoro-header pomodoro-task-list-header' });
 
-        header.createEl('h4', { text: '🎯 Active tasks' });
+        header.createEl('h4', { text: '🎯 active tasks' });
 
         const controls = header.createDiv({ cls: 'pomodoro-stats-items-container' });
 
@@ -3046,14 +3046,14 @@ class PomodoroSettingTab extends PluginSettingTab {
 
         const logsActions = logsHeader.createDiv({ cls: 'pomodoro-debug-logs-actions' });
 
-        const refreshBtn = logsActions.createEl('button', { text: '🔄 Refresh', cls: 'pomodoro-debug-btn' });
+        const refreshBtn = logsActions.createEl('button', { text: '🔄 refresh', cls: 'pomodoro-debug-btn' });
         refreshBtn.onclick = () => {
             if (logsTextArea) {
                 logsTextArea.value = this.plugin.debugLogger.getLogs() || 'No logs yet. Perform some actions to generate logs.';
             }
         };
 
-        const copyBtn = logsActions.createEl('button', { text: '📋 Copy', cls: 'pomodoro-debug-btn' });
+        const copyBtn = logsActions.createEl('button', { text: '📋 copy', cls: 'pomodoro-debug-btn' });
         copyBtn.onclick = () => {
             if (logsTextArea) {
                 navigator.clipboard.writeText(logsTextArea.value);
@@ -3061,7 +3061,7 @@ class PomodoroSettingTab extends PluginSettingTab {
             }
         };
 
-        const clearBtn = logsActions.createEl('button', { text: '🗑️ Clear', cls: 'pomodoro-debug-btn' });
+        const clearBtn = logsActions.createEl('button', { text: '🗑️ clear', cls: 'pomodoro-debug-btn' });
         clearBtn.onclick = () => {
             this.plugin.debugLogger.clear();
             if (logsTextArea) {
