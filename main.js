@@ -59,9 +59,33 @@ var DebugLogger = class {
     if (!this.plugin.settings.enableDebugLogs)
       return;
     const timestamp = new Date().toLocaleTimeString();
-    const message = args.map(
-      (arg) => typeof arg === "object" ? JSON.stringify(arg) : String(arg)
-    ).join(" ");
+    const formatArg = (arg) => {
+      var _a;
+      if (arg === null)
+        return "null";
+      if (arg instanceof Error)
+        return (_a = arg.stack) != null ? _a : arg.message;
+      if (typeof arg === "string")
+        return arg;
+      if (typeof arg === "number" || typeof arg === "boolean" || typeof arg === "bigint") {
+        return String(arg);
+      }
+      if (typeof arg === "function") {
+        return `[Function ${arg.name || "anonymous"}]`;
+      }
+      if (typeof arg === "symbol") {
+        return arg.toString();
+      }
+      if (typeof arg === "object") {
+        try {
+          return JSON.stringify(arg);
+        } catch (e) {
+          return "[Unserializable Object]";
+        }
+      }
+      return String(arg);
+    };
+    const message = args.map(formatArg).join(" ");
     const logEntry = `[${timestamp}] ${message}`;
     this.logs.push(logEntry);
     if (this.logs.length > this.maxLogs) {
@@ -1462,11 +1486,11 @@ var PomodoroView = class extends import_obsidian.ItemView {
     };
     confirmBtn.onclick = (e) => {
       e.stopPropagation();
-      finish();
+      void finish();
     };
     const handleKeydown = (e) => {
       if (e.key === "Enter") {
-        finish();
+        void finish();
       }
       if (e.key === "Escape") {
         cancel();
@@ -1544,7 +1568,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     if (!container)
       return;
     const header = container.createDiv({ cls: "pomodoro-header pomodoro-task-list-header" });
-    header.createEl("h4", { text: "\u{1F3AF} Active tasks" });
+    header.createEl("h4", { text: "\u{1F3AF} active tasks" });
     const controls = header.createDiv({ cls: "pomodoro-stats-items-container" });
     const settingsBtn = controls.createEl("button", { cls: "clickable-icon pomodoro-flex-btn" });
     settingsBtn.ariaLabel = "Settings";
@@ -2124,20 +2148,23 @@ var PomodoroSettingTab = class extends import_obsidian.PluginSettingTab {
     const logsHeader = logsContainer.createDiv({ cls: "pomodoro-debug-logs-header" });
     logsHeader.createSpan({ text: "Debug Logs", cls: "pomodoro-debug-logs-title" });
     const logsActions = logsHeader.createDiv({ cls: "pomodoro-debug-logs-actions" });
-    const refreshBtn = logsActions.createEl("button", { text: "\u{1F504} Refresh", cls: "pomodoro-debug-btn" });
+    const refreshBtn = logsActions.createEl("button", { text: "\u{1F504} refresh", cls: "pomodoro-debug-btn" });
     refreshBtn.onclick = () => {
       if (logsTextArea) {
         logsTextArea.value = this.plugin.debugLogger.getLogs() || "No logs yet. Perform some actions to generate logs.";
       }
     };
-    const copyBtn = logsActions.createEl("button", { text: "\u{1F4CB} Copy", cls: "pomodoro-debug-btn" });
+    const copyBtn = logsActions.createEl("button", { text: "\u{1F4CB} copy", cls: "pomodoro-debug-btn" });
     copyBtn.onclick = () => {
       if (logsTextArea) {
-        navigator.clipboard.writeText(logsTextArea.value);
-        new import_obsidian.Notice("Logs copied to clipboard!");
+        void navigator.clipboard.writeText(logsTextArea.value).then(() => {
+          new import_obsidian.Notice("Logs copied to clipboard!");
+        }).catch(() => {
+          new import_obsidian.Notice("Failed to copy logs.");
+        });
       }
     };
-    const clearBtn = logsActions.createEl("button", { text: "\u{1F5D1}\uFE0F Clear", cls: "pomodoro-debug-btn" });
+    const clearBtn = logsActions.createEl("button", { text: "\u{1F5D1}\uFE0F clear", cls: "pomodoro-debug-btn" });
     clearBtn.onclick = () => {
       this.plugin.debugLogger.clear();
       if (logsTextArea) {

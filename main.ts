@@ -60,9 +60,30 @@ class DebugLogger {
         if (!this.plugin.settings.enableDebugLogs) return;
 
         const timestamp = new Date().toLocaleTimeString();
-        const message = args.map(arg =>
-            typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-        ).join(' ');
+        const formatArg = (arg: unknown): string => {
+            if (arg === null) return 'null';
+            if (arg instanceof Error) return arg.stack ?? arg.message;
+            if (typeof arg === 'string') return arg;
+            if (typeof arg === 'number' || typeof arg === 'boolean' || typeof arg === 'bigint') {
+                return String(arg);
+            }
+            if (typeof arg === 'function') {
+                return `[Function ${arg.name || 'anonymous'}]`;
+            }
+            if (typeof arg === 'symbol') {
+                return arg.toString();
+            }
+            if (typeof arg === 'object') {
+                try {
+                    return JSON.stringify(arg);
+                } catch {
+                    return '[Unserializable Object]';
+                }
+            }
+            return String(arg);
+        };
+
+        const message = args.map(formatArg).join(' ');
 
         const logEntry = `[${timestamp}] ${message}`;
 
@@ -2046,12 +2067,12 @@ export class PomodoroView extends ItemView {
 
         confirmBtn.onclick = (e) => {
             e.stopPropagation();
-            finish();
+            void finish();
         };
 
         const handleKeydown = (e: KeyboardEvent) => {
             if (e.key === 'Enter') {
-                finish();
+                void finish();
             }
             if (e.key === 'Escape') {
                 cancel();
@@ -3056,8 +3077,13 @@ class PomodoroSettingTab extends PluginSettingTab {
         const copyBtn = logsActions.createEl('button', { text: '📋 copy', cls: 'pomodoro-debug-btn' });
         copyBtn.onclick = () => {
             if (logsTextArea) {
-                navigator.clipboard.writeText(logsTextArea.value);
-                new Notice('Logs copied to clipboard!');
+                void navigator.clipboard.writeText(logsTextArea.value)
+                    .then(() => {
+                        new Notice('Logs copied to clipboard!');
+                    })
+                    .catch(() => {
+                        new Notice('Failed to copy logs.');
+                    });
             }
         };
 
