@@ -83,7 +83,9 @@ var DebugLogger = class {
           return "[Unserializable Object]";
         }
       }
-      return String(arg);
+      if (arg === void 0)
+        return "undefined";
+      return Object.prototype.toString.call(arg);
     };
     const message = args.map(formatArg).join(" ");
     const logEntry = `[${timestamp}] ${message}`;

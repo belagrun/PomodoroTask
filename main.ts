@@ -80,7 +80,8 @@ class DebugLogger {
                     return '[Unserializable Object]';
                 }
             }
-            return String(arg);
+            if (arg === undefined) return 'undefined';
+            return Object.prototype.toString.call(arg);
         };
 
         const message = args.map(formatArg).join(' ');
