@@ -389,12 +389,12 @@ class TimerService {
         }
 
         await this.saveState();
-        
+
         if (!startPaused) {
             this.startTick();
         }
-        
-        await this.plugin.refreshView();
+
+        this.plugin.refreshView();
     }
 
     async incrementCycleOnStart() {
@@ -498,13 +498,13 @@ class TimerService {
                 await this.incrementCycleOnStart();
                 this.state.cycleStarted = true;
             }
-            
+
             const pauseDuration = Date.now() - this.state.pausedTime;
             this.state.startTime += pauseDuration;
             this.state.pausedTime = null;
             await this.saveState();
             this.startTick();
-            await this.plugin.refreshView();
+            this.plugin.refreshView();
         }
     }
 
@@ -652,7 +652,7 @@ class TimerService {
             const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
             if (file instanceof TFile) {
                 const cycleInfo = await this.checkHasMoreCycles(file);
-                
+
                 if (cycleInfo.hasMore) {
                     new Notice("Break finished! Starting next cycle.");
                     // Start next work session automatically (same as break auto-starts after work)
@@ -787,7 +787,7 @@ class TimerService {
             return { goalReached: true, isRecurring };
         }
         // No need to update the file - counter was already incremented at session start
-        
+
         return { goalReached: false, isRecurring: false };
     }
 
@@ -949,7 +949,7 @@ class CycleConfigModal extends Modal {
         input.value = String(this.useSeconds ? initialValue * 60 : initialValue);
 
         const unitSpan = inputRow.createSpan({ text: this.useSeconds ? 'seconds' : 'minutes', cls: 'pomodoro-unit pomodoro-unit-clickable' });
-        
+
         // Make unit clickable to toggle between minutes and seconds
         unitSpan.onclick = () => {
             this.useSeconds = !this.useSeconds;
@@ -2106,7 +2106,7 @@ export class PomodoroView extends ItemView {
 
         // Main row with icon and value
         const mainRow = cycleDiv.createDiv({ cls: 'pomodoro-cycle-main-row' });
-        
+
         const iconSpan = mainRow.createSpan();
         iconSpan.innerText = '🍅';
 
