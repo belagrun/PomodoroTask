@@ -1970,7 +1970,7 @@ export class PomodoroView extends ItemView {
         const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
 
         if (state.state === 'COMPLETED') {
-            label.innerText = '✅ Completed!';
+            label.innerText = '✅ completed!';
             label.addClass('pomodoro-label-completed');
         } else if (state.pausedTime) {
             label.innerText = '⏸️ paused';
@@ -2065,7 +2065,7 @@ export class PomodoroView extends ItemView {
 
         if (state.state === 'COMPLETED') {
             // Only show Back button when completed
-            const backBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: '← Back to Tasks' });
+            const backBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: '← back to Tasks' });
             backBtn.onclick = () => this.plugin.timerService.stopSession();
         } else {
             // Pause/Resume Button
@@ -2160,10 +2160,10 @@ export class PomodoroView extends ItemView {
                     statusRow.innerText = `Cycle ${currentCount} ready`;
                 }
             } else if (state.state === 'BREAK') {
-                statusRow.innerText = `☕ Break time`;
+                statusRow.innerText = `☕ break time`;
                 statusRow.addClass('pomodoro-cycle-break');
             } else if (state.state === 'COMPLETED') {
-                statusRow.innerText = `🎉 All cycles completed!`;
+                statusRow.innerText = `🎉 all cycles completed!`;
                 statusRow.addClass('pomodoro-cycle-completed');
             }
 
