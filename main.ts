@@ -290,7 +290,7 @@ class SoundService {
 
 
 interface PomodoroSession {
-    state: 'IDLE' | 'WORK' | 'BREAK';
+    state: 'IDLE' | 'WORK' | 'BREAK' | 'COMPLETED';
     startTime: number | null; // Timestamp
     duration: number; // Minutes
     taskId: string | null; // Unique ID for the task (file path + line number approximately)
@@ -607,14 +607,14 @@ class TimerService {
 
             new Notice("Pomodoro finished! Time for a break.");
 
-            // Start break session paused - user clicks resume to start break
+            // Start break session immediately (auto-start, not paused)
             const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
             if (file instanceof TFile) {
                 void this.startSession({
                     file: file,
                     line: this.state.taskLine,
                     text: this.state.taskText
-                }, 'BREAK', this.state.overrides, true);
+                }, 'BREAK', this.state.overrides, false);
             } else {
                 // File missing, can't continue
                 this.stopSession();
@@ -622,20 +622,14 @@ class TimerService {
 
         } else {
             // It was a BREAK
-            const isLong = this.state.duration >= this.plugin.settings.longBreakDuration;
-
-            if (isLong) {
-                this.soundService.play(this.plugin.settings.soundBreakEnd);
-            } else {
-                this.soundService.play(this.plugin.settings.soundBreakEnd);
-            }
+            this.soundService.play(this.plugin.settings.soundBreakEnd);
 
             // Check if there are more cycles to complete
             const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
             if (file instanceof TFile) {
-                const hasMoreCycles = await this.checkHasMoreCycles(file);
+                const cycleInfo = await this.checkHasMoreCycles(file);
                 
-                if (hasMoreCycles) {
+                if (cycleInfo.hasMore) {
                     new Notice("Break finished! Ready for next cycle.");
                     // Start next work session paused - user clicks resume to start
                     void this.startSession({
@@ -644,23 +638,35 @@ class TimerService {
                         text: this.state.taskText
                     }, 'WORK', this.state.overrides, true);
                 } else {
+                    // All cycles completed - stay on timer view in COMPLETED state
                     new Notice("All cycles completed! Great work!");
-                    this.stopSession();
+                    this.clearInterval();
+                    this.state.state = 'COMPLETED';
+                    this.state.startTime = null;
+                    this.state.pausedTime = null;
+                    void this.saveState();
+                    void this.plugin.refreshView();
                 }
             } else {
                 new Notice("Break finished!");
-                this.stopSession();
+                // Keep showing the task view in COMPLETED state
+                this.clearInterval();
+                this.state.state = 'COMPLETED';
+                this.state.startTime = null;
+                this.state.pausedTime = null;
+                void this.saveState();
+                void this.plugin.refreshView();
             }
         }
     }
 
-    async checkHasMoreCycles(file: TFile): Promise<boolean> {
+    async checkHasMoreCycles(file: TFile): Promise<{ hasMore: boolean, hasGoal: boolean }> {
         try {
             const content = await this.plugin.app.vault.read(file);
             const lines = content.split('\n');
             const lineIdx = this.state.taskLine;
 
-            if (lineIdx >= lines.length) return false;
+            if (lineIdx >= lines.length) return { hasMore: false, hasGoal: false };
 
             const line = lines[lineIdx];
             const tomatoRegex = /🍅::\s*(\d+)(?:\s*\/\s*(\d+))?/;
@@ -670,15 +676,24 @@ class TimerService {
                 const currentCount = parseInt(match[1]);
                 const goal = match[2] ? parseInt(match[2]) : null;
 
-                // If there's a goal and we haven't reached it, there are more cycles
-                if (goal !== null && currentCount < goal) {
-                    return true;
+                // If no goal defined, continue indefinitely
+                if (goal === null) {
+                    return { hasMore: true, hasGoal: false };
                 }
+
+                // If there's a goal and we haven't reached it, there are more cycles
+                if (currentCount < goal) {
+                    return { hasMore: true, hasGoal: true };
+                }
+
+                // Goal reached
+                return { hasMore: false, hasGoal: true };
             }
 
-            return false;
+            // No counter found, can continue
+            return { hasMore: true, hasGoal: false };
         } catch {
-            return false;
+            return { hasMore: false, hasGoal: false };
         }
     }
 
@@ -1172,6 +1187,7 @@ export class PomodoroView extends ItemView {
             container.addClass('pomodoro-view-container');
 
             if (state.state !== 'IDLE') {
+                // WORK, BREAK, or COMPLETED states all show the timer view
                 void this.renderTimer(container);
                 void this.renderMarkers(container);
             } else {
@@ -1906,7 +1922,10 @@ export class PomodoroView extends ItemView {
 
         const label = header.createDiv({ cls: 'pomodoro-active-task-label' });
 
-        if (state.pausedTime) {
+        if (state.state === 'COMPLETED') {
+            label.innerText = '✅ Completed!';
+            label.addClass('pomodoro-label-completed');
+        } else if (state.pausedTime) {
             label.innerText = '⏸️ paused';
             label.addClass('pomodoro-label-paused');
         } else {
@@ -1997,28 +2016,34 @@ export class PomodoroView extends ItemView {
         // Controls
         const controls = view.createDiv({ cls: 'pomodoro-controls' });
 
-        // Pause/Resume Button
-        if (state.pausedTime) {
-            const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ resume' });
-            resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+        if (state.state === 'COMPLETED') {
+            // Only show Back button when completed
+            const backBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: '← Back to Tasks' });
+            backBtn.onclick = () => this.plugin.timerService.stopSession();
         } else {
-            const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ pause' });
-            pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+            // Pause/Resume Button
+            if (state.pausedTime) {
+                const resumeBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-resume', text: '▶ resume' });
+                resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+            } else {
+                const pauseBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-pause', text: '⏸ pause' });
+                pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+            }
+
+            const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop' });
+            stopBtn.onclick = () => this.plugin.timerService.stopSession();
+
+            const extraControls = view.createDiv({ cls: 'pomodoro-controls-extra', attr: { style: 'margin-top: 10px; display: flex; gap: 10px;' } });
+
+            const resetBtn = extraControls.createEl('button', { cls: 'pomodoro-btn pomodoro-small-btn', text: 'Reset' });
+            resetBtn.onclick = () => this.plugin.timerService.resetSession();
+
+            const switchBtn = extraControls.createEl('button', { cls: 'pomodoro-btn pomodoro-small-btn', text: 'Switch' });
+            switchBtn.onclick = () => this.plugin.timerService.switchMode();
+
+            const cycleBtn = extraControls.createEl('button', { cls: 'pomodoro-btn pomodoro-small-btn', text: 'Cycle' });
+            cycleBtn.onclick = () => new CycleConfigModal(this.plugin.app, this.plugin).open();
         }
-
-        const stopBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: 'Stop' });
-        stopBtn.onclick = () => this.plugin.timerService.stopSession();
-
-        const extraControls = view.createDiv({ cls: 'pomodoro-controls-extra', attr: { style: 'margin-top: 10px; display: flex; gap: 10px;' } });
-
-        const resetBtn = extraControls.createEl('button', { cls: 'pomodoro-btn pomodoro-small-btn', text: 'Reset' });
-        resetBtn.onclick = () => this.plugin.timerService.resetSession();
-
-        const switchBtn = extraControls.createEl('button', { cls: 'pomodoro-btn pomodoro-small-btn', text: 'Switch' });
-        switchBtn.onclick = () => this.plugin.timerService.switchMode();
-
-        const cycleBtn = extraControls.createEl('button', { cls: 'pomodoro-btn pomodoro-small-btn', text: 'Cycle' });
-        cycleBtn.onclick = () => new CycleConfigModal(this.plugin.app, this.plugin).open();
 
 
 
@@ -2090,6 +2115,9 @@ export class PomodoroView extends ItemView {
             } else if (state.state === 'BREAK') {
                 statusRow.innerText = `☕ Break time`;
                 statusRow.addClass('pomodoro-cycle-break');
+            } else if (state.state === 'COMPLETED') {
+                statusRow.innerText = `🎉 All cycles completed!`;
+                statusRow.addClass('pomodoro-cycle-completed');
             }
 
             // Make it clickable to edit

@@ -288,6 +288,11 @@
     font-weight: 500;
 }
 
+.pomodoro-cycle-status.pomodoro-cycle-completed {
+    color: var(--text-success, #4ade80);
+    font-weight: 600;
+}
+
 .pomodoro-cycle-label {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -670,6 +675,13 @@
 .pomodoro-label-paused {
     opacity: 1.0;
     color: var(--text-warning);
+}
+
+/* Label Completed State */
+.pomodoro-label-completed {
+    opacity: 1.0;
+    color: var(--text-success, #4ade80);
+    font-weight: 600;
 }
 
 /* Stats Row */

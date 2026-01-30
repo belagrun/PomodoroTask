@@ -488,21 +488,16 @@ var TimerService = class {
           file,
           line: this.state.taskLine,
           text: this.state.taskText
-        }, "BREAK", this.state.overrides, true);
+        }, "BREAK", this.state.overrides, false);
       } else {
         this.stopSession();
       }
     } else {
-      const isLong = this.state.duration >= this.plugin.settings.longBreakDuration;
-      if (isLong) {
-        this.soundService.play(this.plugin.settings.soundBreakEnd);
-      } else {
-        this.soundService.play(this.plugin.settings.soundBreakEnd);
-      }
+      this.soundService.play(this.plugin.settings.soundBreakEnd);
       const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
       if (file instanceof import_obsidian.TFile) {
-        const hasMoreCycles = await this.checkHasMoreCycles(file);
-        if (hasMoreCycles) {
+        const cycleInfo = await this.checkHasMoreCycles(file);
+        if (cycleInfo.hasMore) {
           new import_obsidian.Notice("Break finished! Ready for next cycle.");
           void this.startSession({
             file,
@@ -511,11 +506,21 @@ var TimerService = class {
           }, "WORK", this.state.overrides, true);
         } else {
           new import_obsidian.Notice("All cycles completed! Great work!");
-          this.stopSession();
+          this.clearInterval();
+          this.state.state = "COMPLETED";
+          this.state.startTime = null;
+          this.state.pausedTime = null;
+          void this.saveState();
+          void this.plugin.refreshView();
         }
       } else {
         new import_obsidian.Notice("Break finished!");
-        this.stopSession();
+        this.clearInterval();
+        this.state.state = "COMPLETED";
+        this.state.startTime = null;
+        this.state.pausedTime = null;
+        void this.saveState();
+        void this.plugin.refreshView();
       }
     }
   }
@@ -525,20 +530,24 @@ var TimerService = class {
       const lines = content.split("\n");
       const lineIdx = this.state.taskLine;
       if (lineIdx >= lines.length)
-        return false;
+        return { hasMore: false, hasGoal: false };
       const line = lines[lineIdx];
       const tomatoRegex = /🍅::\s*(\d+)(?:\s*\/\s*(\d+))?/;
       const match = line.match(tomatoRegex);
       if (match) {
         const currentCount = parseInt(match[1]);
         const goal = match[2] ? parseInt(match[2]) : null;
-        if (goal !== null && currentCount < goal) {
-          return true;
+        if (goal === null) {
+          return { hasMore: true, hasGoal: false };
         }
+        if (currentCount < goal) {
+          return { hasMore: true, hasGoal: true };
+        }
+        return { hasMore: false, hasGoal: true };
       }
-      return false;
+      return { hasMore: true, hasGoal: false };
     } catch (e) {
-      return false;
+      return { hasMore: false, hasGoal: false };
     }
   }
   async logCompletion() {
@@ -1400,7 +1409,10 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const taskCard = view.createDiv({ cls: "pomodoro-active-task-card" });
     const header = taskCard.createDiv({ cls: "pomodoro-active-task-header pomodoro-draggable pomodoro-stats-row" });
     const label = header.createDiv({ cls: "pomodoro-active-task-label" });
-    if (state.pausedTime) {
+    if (state.state === "COMPLETED") {
+      label.innerText = "\u2705 Completed!";
+      label.addClass("pomodoro-label-completed");
+    } else if (state.pausedTime) {
       label.innerText = "\u23F8\uFE0F paused";
       label.addClass("pomodoro-label-paused");
     } else {
@@ -1460,22 +1472,27 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const cycleInfoContainer = view.createDiv({ cls: "pomodoro-cycle-info" });
     void this.populateCycleInfo(cycleInfoContainer);
     const controls = view.createDiv({ cls: "pomodoro-controls" });
-    if (state.pausedTime) {
-      const resumeBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-resume", text: "\u25B6 resume" });
-      resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+    if (state.state === "COMPLETED") {
+      const backBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "\u2190 Back to Tasks" });
+      backBtn.onclick = () => this.plugin.timerService.stopSession();
     } else {
-      const pauseBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-pause", text: "\u23F8 pause" });
-      pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+      if (state.pausedTime) {
+        const resumeBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-resume", text: "\u25B6 resume" });
+        resumeBtn.onclick = () => this.plugin.timerService.resumeSession();
+      } else {
+        const pauseBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-pause", text: "\u23F8 pause" });
+        pauseBtn.onclick = () => this.plugin.timerService.pauseSession();
+      }
+      const stopBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "Stop" });
+      stopBtn.onclick = () => this.plugin.timerService.stopSession();
+      const extraControls = view.createDiv({ cls: "pomodoro-controls-extra", attr: { style: "margin-top: 10px; display: flex; gap: 10px;" } });
+      const resetBtn = extraControls.createEl("button", { cls: "pomodoro-btn pomodoro-small-btn", text: "Reset" });
+      resetBtn.onclick = () => this.plugin.timerService.resetSession();
+      const switchBtn = extraControls.createEl("button", { cls: "pomodoro-btn pomodoro-small-btn", text: "Switch" });
+      switchBtn.onclick = () => this.plugin.timerService.switchMode();
+      const cycleBtn = extraControls.createEl("button", { cls: "pomodoro-btn pomodoro-small-btn", text: "Cycle" });
+      cycleBtn.onclick = () => new CycleConfigModal(this.plugin.app, this.plugin).open();
     }
-    const stopBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "Stop" });
-    stopBtn.onclick = () => this.plugin.timerService.stopSession();
-    const extraControls = view.createDiv({ cls: "pomodoro-controls-extra", attr: { style: "margin-top: 10px; display: flex; gap: 10px;" } });
-    const resetBtn = extraControls.createEl("button", { cls: "pomodoro-btn pomodoro-small-btn", text: "Reset" });
-    resetBtn.onclick = () => this.plugin.timerService.resetSession();
-    const switchBtn = extraControls.createEl("button", { cls: "pomodoro-btn pomodoro-small-btn", text: "Switch" });
-    switchBtn.onclick = () => this.plugin.timerService.switchMode();
-    const cycleBtn = extraControls.createEl("button", { cls: "pomodoro-btn pomodoro-small-btn", text: "Cycle" });
-    cycleBtn.onclick = () => new CycleConfigModal(this.plugin.app, this.plugin).open();
     if (state.state === "WORK" && this.showSubtasks) {
       void this.renderSubtasks(view);
     }
@@ -1525,6 +1542,9 @@ var PomodoroView = class extends import_obsidian.ItemView {
       } else if (state.state === "BREAK") {
         statusRow.innerText = `\u2615 Break time`;
         statusRow.addClass("pomodoro-cycle-break");
+      } else if (state.state === "COMPLETED") {
+        statusRow.innerText = `\u{1F389} All cycles completed!`;
+        statusRow.addClass("pomodoro-cycle-completed");
       }
       valueSpan.addClass("pomodoro-clickable-value");
       valueSpan.title = "Click to edit pomodoro cycles";
