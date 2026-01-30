@@ -315,7 +315,7 @@ var TimerService = class {
     if (!startPaused) {
       this.startTick();
     }
-    await this.plugin.refreshView();
+    this.plugin.refreshView();
   }
   async incrementCycleOnStart() {
     this.plugin.debugLogger.log("incrementCycleOnStart called");
@@ -405,7 +405,7 @@ var TimerService = class {
       this.state.pausedTime = null;
       await this.saveState();
       this.startTick();
-      await this.plugin.refreshView();
+      this.plugin.refreshView();
     }
   }
   startTick() {
@@ -1448,7 +1448,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const header = taskCard.createDiv({ cls: "pomodoro-active-task-header pomodoro-draggable pomodoro-stats-row" });
     const label = header.createDiv({ cls: "pomodoro-active-task-label" });
     if (state.state === "COMPLETED") {
-      label.innerText = "\u2705 Completed!";
+      label.innerText = "\u2705 completed!";
       label.addClass("pomodoro-label-completed");
     } else if (state.pausedTime) {
       label.innerText = "\u23F8\uFE0F paused";
@@ -1511,7 +1511,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     void this.populateCycleInfo(cycleInfoContainer);
     const controls = view.createDiv({ cls: "pomodoro-controls" });
     if (state.state === "COMPLETED") {
-      const backBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "\u2190 Back to Tasks" });
+      const backBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "\u2190 back to Tasks" });
       backBtn.onclick = () => this.plugin.timerService.stopSession();
     } else {
       if (state.pausedTime) {
@@ -1578,10 +1578,10 @@ var PomodoroView = class extends import_obsidian.ItemView {
           statusRow.innerText = `Cycle ${currentCount} ready`;
         }
       } else if (state.state === "BREAK") {
-        statusRow.innerText = `\u2615 Break time`;
+        statusRow.innerText = `\u2615 break time`;
         statusRow.addClass("pomodoro-cycle-break");
       } else if (state.state === "COMPLETED") {
-        statusRow.innerText = `\u{1F389} All cycles completed!`;
+        statusRow.innerText = `\u{1F389} all cycles completed!`;
         statusRow.addClass("pomodoro-cycle-completed");
       }
       valueSpan.addClass("pomodoro-clickable-value");
