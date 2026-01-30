@@ -630,13 +630,14 @@ class TimerService {
                 const cycleInfo = await this.checkHasMoreCycles(file);
                 
                 if (cycleInfo.hasMore) {
-                    new Notice("Break finished! Ready for next cycle.");
-                    // Start next work session paused - user clicks resume to start
+                    new Notice("Break finished! Starting next cycle.");
+                    // Start next work session automatically (same as break auto-starts after work)
+                    // Respect autoStartPaused setting
                     void this.startSession({
                         file: file,
                         line: this.state.taskLine,
                         text: this.state.taskText
-                    }, 'WORK', this.state.overrides, true);
+                    }, 'WORK', this.state.overrides, this.plugin.settings.autoStartPaused);
                 } else {
                     // All cycles completed - stay on timer view in COMPLETED state
                     new Notice("All cycles completed! Great work!");

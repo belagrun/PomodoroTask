@@ -498,12 +498,12 @@ var TimerService = class {
       if (file instanceof import_obsidian.TFile) {
         const cycleInfo = await this.checkHasMoreCycles(file);
         if (cycleInfo.hasMore) {
-          new import_obsidian.Notice("Break finished! Ready for next cycle.");
+          new import_obsidian.Notice("Break finished! Starting next cycle.");
           void this.startSession({
             file,
             line: this.state.taskLine,
             text: this.state.taskText
-          }, "WORK", this.state.overrides, true);
+          }, "WORK", this.state.overrides, this.plugin.settings.autoStartPaused);
         } else {
           new import_obsidian.Notice("All cycles completed! Great work!");
           this.clearInterval();
