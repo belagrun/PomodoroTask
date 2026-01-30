@@ -299,6 +299,7 @@ interface PomodoroSession {
     taskText: string;
     completedSubtasks: string[]; // List of subtask texts completed in this session
     pausedTime?: number | null; // Timestamp when paused
+    cycleStarted?: boolean; // Whether the cycle counter has been incremented
     overrides?: {
         workDuration?: number;
         shortBreakDuration?: number;
@@ -353,7 +354,7 @@ class TimerService {
         await this.plugin.saveAllData();
     }
 
-    startSession(task: { file: TFile, line: number, text: string }, type: 'WORK' | 'BREAK', overrides?: { workDuration?: number, shortBreakDuration?: number }) {
+    async startSession(task: { file: TFile, line: number, text: string }, type: 'WORK' | 'BREAK', overrides?: { workDuration?: number, shortBreakDuration?: number }, startPaused: boolean = true) {
         let duration = 0;
 
         if (type === 'WORK') {
@@ -371,23 +372,95 @@ class TimerService {
             taskFile: task.file.path,
             taskText: task.text,
             completedSubtasks: [],
+            cycleStarted: false,
             overrides: overrides
         };
 
-        // Play start sound if explicitly starting work (or just starting any session?)
-        // User asked for "Início do ciclo".
-        if (type === 'WORK') {
-            this.soundService.play(this.plugin.settings.soundWorkStart);
-        }
-
-        // Auto Start Paused Logic
-        if (this.plugin.settings.autoStartPaused) {
+        // If starting paused, set pausedTime immediately
+        if (startPaused) {
             this.state.pausedTime = Date.now();
+        } else {
+            // Only play sound and increment counter when actually starting (not paused)
+            if (type === 'WORK') {
+                this.soundService.play(this.plugin.settings.soundWorkStart);
+                await this.incrementCycleOnStart();
+                this.state.cycleStarted = true;
+            }
         }
 
-        void this.saveState();
-        this.startTick();
-        void this.plugin.refreshView();
+        await this.saveState();
+        
+        if (!startPaused) {
+            this.startTick();
+        }
+        
+        await this.plugin.refreshView();
+    }
+
+    async incrementCycleOnStart() {
+        this.plugin.debugLogger.log('incrementCycleOnStart called');
+
+        const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+        if (!(file instanceof TFile)) {
+            this.plugin.debugLogger.log('File not found:', this.state.taskFile);
+            return;
+        }
+
+        const content = await this.plugin.app.vault.read(file);
+        const lines = content.split('\n');
+        const lineIdx = this.state.taskLine;
+
+        if (lineIdx >= lines.length) {
+            this.plugin.debugLogger.log('Line index out of bounds');
+            return;
+        }
+
+        const line = lines[lineIdx];
+        this.plugin.debugLogger.log('Incrementing cycle on line:', line);
+
+        // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
+        const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
+        const match = line.match(tomatoRegex);
+
+        let newLine = line;
+
+        if (match) {
+            const hasOpenBracket = match[1] === '[';
+            const hasCloseBracket = match[4] === ']';
+            const hasBrackets = hasOpenBracket && hasCloseBracket;
+
+            const currentCount = parseInt(match[2]);
+            const goalStr = match[3];
+            const newCount = currentCount + 1;
+
+            let newLabel = `🍅:: ${newCount}`;
+            if (goalStr) {
+                newLabel += `/${goalStr}`;
+            }
+
+            if (hasBrackets) {
+                newLabel = `[${newLabel}]`;
+            }
+
+            this.plugin.debugLogger.log('Cycle counter:', currentCount, '->', newCount, 'Goal:', goalStr, 'Brackets:', hasBrackets);
+            newLine = line.replace(match[0], newLabel);
+        } else {
+            // No counter found, start a new one
+            const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
+            const checkboxMatch = line.match(checkboxRegex);
+            if (checkboxMatch) {
+                const checkboxPart = checkboxMatch[1];
+                const restOfLine = line.substring(checkboxPart.length);
+                newLine = `${checkboxPart}🍅:: 1 ${restOfLine}`;
+            } else {
+                newLine = `${line} 🍅:: 1`;
+            }
+            this.plugin.debugLogger.log('No counter found, starting at 1');
+        }
+
+        lines[lineIdx] = newLine;
+        await this.plugin.app.vault.modify(file, lines.join('\n'));
+        this.plugin.debugLogger.log('Cycle incremented successfully');
     }
 
     stopSession() {
@@ -417,14 +490,21 @@ class TimerService {
         }
     }
 
-    resumeSession() {
+    async resumeSession() {
         if (this.state.state !== 'IDLE' && this.state.pausedTime && this.state.startTime) {
+            // If this is the first time resuming a WORK session, increment the counter
+            if (this.state.state === 'WORK' && !this.state.cycleStarted) {
+                this.soundService.play(this.plugin.settings.soundWorkStart);
+                await this.incrementCycleOnStart();
+                this.state.cycleStarted = true;
+            }
+            
             const pauseDuration = Date.now() - this.state.pausedTime;
             this.state.startTime += pauseDuration;
             this.state.pausedTime = null;
-            void this.saveState();
+            await this.saveState();
             this.startTick();
-            void this.plugin.refreshView();
+            await this.plugin.refreshView();
         }
     }
 
@@ -481,12 +561,12 @@ class TimerService {
             const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
 
             if (file instanceof TFile) {
-                // Pass existing overrides to the next session
-                this.startSession({
+                // Pass existing overrides to the next session, start paused
+                void this.startSession({
                     file: file,
                     line: this.state.taskLine,
                     text: this.state.taskText
-                }, nextType, this.state.overrides);
+                }, nextType, this.state.overrides, true);
             } else {
                 // If file is missing (deleted?), we can't easily restart with context.
                 // Just stop.
@@ -527,36 +607,78 @@ class TimerService {
 
             new Notice("Pomodoro finished! Time for a break.");
 
-            this.stopSession();
+            // Start break session paused - user clicks resume to start break
+            const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+            if (file instanceof TFile) {
+                void this.startSession({
+                    file: file,
+                    line: this.state.taskLine,
+                    text: this.state.taskText
+                }, 'BREAK', this.state.overrides, true);
+            } else {
+                // File missing, can't continue
+                this.stopSession();
+            }
 
         } else {
-            // It was a BREAK. Was it short or long?
-            // User requested "final do ciclo longo".
-            // Logic: we don't strictly track 'long break' state type yet (just duration), 
-            // but we can infer or just use the generic Break End for now, 
-            // OR checks against settings.
+            // It was a BREAK
             const isLong = this.state.duration >= this.plugin.settings.longBreakDuration;
 
             if (isLong) {
-                // If user wants specific sound for long break, we could add a setting.
-                // For now, let's use the 'chime' or a distinct 'alarm' if available?
-                // The request says "final do ciclo longo". I only added settings for "soundBreakEnd".
-                // Let's assume Break End covers both, UNLESS I add a specific logical branch.
-                // Ideally I should have added `soundLongBreakEnd` to settings. 
-                // I will use soundBreakEnd for both for consistency unless I edit settings again.
-                // But wait, the prompt explicitly asked for "final do ciclo longo".
-                // I should probably distinguish it. 
-                // Since I haven't added `soundLongBreakEnd` in the setting interface yet (step 1), 
-                // I will stick to `soundBreakEnd` for both but maybe play it twice?
-                // Actually, I can use the same sound but maybe the user will manually set it to 'alarm'.
-                // Let's stick to `soundBreakEnd`.
                 this.soundService.play(this.plugin.settings.soundBreakEnd);
             } else {
                 this.soundService.play(this.plugin.settings.soundBreakEnd);
             }
 
-            new Notice("Break finished! Ready to work?");
-            this.stopSession();
+            // Check if there are more cycles to complete
+            const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+            if (file instanceof TFile) {
+                const hasMoreCycles = await this.checkHasMoreCycles(file);
+                
+                if (hasMoreCycles) {
+                    new Notice("Break finished! Ready for next cycle.");
+                    // Start next work session paused - user clicks resume to start
+                    void this.startSession({
+                        file: file,
+                        line: this.state.taskLine,
+                        text: this.state.taskText
+                    }, 'WORK', this.state.overrides, true);
+                } else {
+                    new Notice("All cycles completed! Great work!");
+                    this.stopSession();
+                }
+            } else {
+                new Notice("Break finished!");
+                this.stopSession();
+            }
+        }
+    }
+
+    async checkHasMoreCycles(file: TFile): Promise<boolean> {
+        try {
+            const content = await this.plugin.app.vault.read(file);
+            const lines = content.split('\n');
+            const lineIdx = this.state.taskLine;
+
+            if (lineIdx >= lines.length) return false;
+
+            const line = lines[lineIdx];
+            const tomatoRegex = /🍅::\s*(\d+)(?:\s*\/\s*(\d+))?/;
+            const match = line.match(tomatoRegex);
+
+            if (match) {
+                const currentCount = parseInt(match[1]);
+                const goal = match[2] ? parseInt(match[2]) : null;
+
+                // If there's a goal and we haven't reached it, there are more cycles
+                if (goal !== null && currentCount < goal) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch {
+            return false;
         }
     }
 
@@ -590,119 +712,47 @@ class TimerService {
         }
 
         // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
-        // Capture groups: (1) opening bracket, (2) count, (3) goal, (4) closing bracket
+        // Counter was already incremented at session start, so we just check if goal is met
         const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
         const match = line.match(tomatoRegex);
 
-        let newLine = line;
         let shouldComplete = false;
 
         if (match) {
-            // Preserve bracket format
-            const hasOpenBracket = match[1] === '[';
-            const hasCloseBracket = match[4] === ']';
-            const hasBrackets = hasOpenBracket && hasCloseBracket;
-
-            // Increment existing counter
             const currentCount = parseInt(match[2]);
-            const goalStr = match[3]; // undefined if no goal
-            let goal: number | null = null;
+            const goalStr = match[3];
+            const goal = goalStr ? parseInt(goalStr) : null;
 
-            const newCount = currentCount + 1;
+            this.plugin.debugLogger.log('Current count:', currentCount, 'Goal:', goal);
 
-            // Build new label preserving bracket format
-            let newLabel = `🍅:: ${newCount}`;
-            if (goalStr) {
-                newLabel += `/${goalStr}`;
-                goal = parseInt(goalStr);
-            }
-
-            // Wrap in brackets if original had brackets
-            if (hasBrackets) {
-                newLabel = `[${newLabel}]`;
-            }
-
-            this.plugin.debugLogger.log('Counter:', currentCount, '->', newCount, 'Goal:', goal, 'Brackets:', hasBrackets);
-
-            // Replace the old tag with the new one
-            newLine = line.replace(match[0], newLabel);
-
-            // Check if goal is met
-            if (goal !== null && newCount >= goal) {
+            // Check if goal is met (counter was already incremented at start)
+            if (goal !== null && currentCount >= goal) {
                 this.plugin.debugLogger.log('Goal reached! Checking if task should be completed...');
                 const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-                if (checkboxRegex.test(newLine)) {
+                if (checkboxRegex.test(line)) {
                     shouldComplete = true;
                     this.plugin.debugLogger.log('Task will be completed');
                 } else {
                     this.plugin.debugLogger.log('Task does not have unchecked checkbox');
                 }
             }
-        } else {
-            // No counter found, start a new one (without brackets)
-            // Insert after checkbox instead of at the end
-            const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
-            const checkboxMatch = line.match(checkboxRegex);
-            if (checkboxMatch) {
-                // Insert 🍅:: 1 right after the checkbox
-                const checkboxPart = checkboxMatch[1];
-                const restOfLine = line.substring(checkboxPart.length);
-                newLine = `${checkboxPart}🍅:: 1 ${restOfLine}`;
-            } else {
-                // Fallback: append at end if no checkbox found
-                newLine = `${line} 🍅:: 1`;
-            }
-            this.plugin.debugLogger.log('No counter found, starting at 1');
         }
 
         this.plugin.debugLogger.log('shouldComplete:', shouldComplete);
 
-        // If task should be completed, use Tasks API BEFORE updating the file
+        // If task should be completed, use Tasks API
         if (shouldComplete) {
             this.plugin.debugLogger.log('Calling completeTaskViaTasksAPI');
             await this.completeTaskViaTasksAPI(file, lineIdx, line);
-        } else {
-            // Just update the tomato counter
-            lines[lineIdx] = newLine;
-            await this.plugin.app.vault.modify(file, lines.join('\n'));
         }
+        // No need to update the file - counter was already incremented at session start
     }
 
     async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string) {
         this.plugin.debugLogger.log('Attempting to complete task:', originalLine);
 
-        // First, we need to update the tomato counter in the line BEFORE passing to Tasks API
-        // Capture groups: (1) opening bracket, (2) count, (3) goal, (4) closing bracket
-        const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
-        const match = originalLine.match(tomatoRegex);
-
-        let lineWithUpdatedCounter = originalLine;
-        if (match) {
-            // Preserve bracket format
-            const hasOpenBracket = match[1] === '[';
-            const hasCloseBracket = match[4] === ']';
-            const hasBrackets = hasOpenBracket && hasCloseBracket;
-
-            const currentCount = parseInt(match[2]);
-            const goalStr = match[3];
-            const newCount = currentCount + 1;
-
-            // Build new label preserving bracket format
-            let newLabel = `🍅:: ${newCount}`;
-            if (goalStr) {
-                newLabel += `/${goalStr}`;
-            }
-
-            // Wrap in brackets if original had brackets
-            if (hasBrackets) {
-                newLabel = `[${newLabel}]`;
-            }
-
-            lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
-            this.plugin.debugLogger.log('Bracket format preserved:', hasBrackets);
-        }
-
-        this.plugin.debugLogger.log('Line with updated counter:', lineWithUpdatedCounter);
+        // Counter was already incremented at session start, so we use the line as-is
+        this.plugin.debugLogger.log('Line to complete:', originalLine);
 
         // Try to use the Tasks plugin API (best option for recurrence)
         // @ts-ignore - accessing plugin API
@@ -714,13 +764,12 @@ class TimerService {
 
         if (tasksPlugin?.apiV1?.executeToggleTaskDoneCommand) {
             // Use the Tasks API to toggle the task - this handles recurrence properly!
-            // Pass the line with updated counter so Tasks can process it
-            const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(lineWithUpdatedCounter, file.path);
+            const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(originalLine, file.path);
 
             this.plugin.debugLogger.log('Tasks API result:', result);
-            this.plugin.debugLogger.log('Result different from input:', result !== lineWithUpdatedCounter);
+            this.plugin.debugLogger.log('Result different from input:', result !== originalLine);
 
-            if (result && result !== lineWithUpdatedCounter) {
+            if (result && result !== originalLine) {
                 // Read file again to get current state
                 const content = await this.plugin.app.vault.read(file);
                 const lines = content.split('\n');
@@ -766,13 +815,13 @@ class TimerService {
 
         this.plugin.debugLogger.log('Falling back to direct modification...');
 
-        // Fallback: Update the file directly with the updated counter and mark complete
+        // Fallback: Update the file directly and mark complete
         const content = await this.plugin.app.vault.read(file);
         const lines = content.split('\n');
 
-        // Update with counter and mark as complete
+        // Mark as complete (counter already incremented)
         const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-        const completedLine = lineWithUpdatedCounter.replace(checkboxRegex, '$1[x]');
+        const completedLine = originalLine.replace(checkboxRegex, '$1[x]');
 
         lines[lineIdx] = completedLine;
         await this.plugin.app.vault.modify(file, lines.join('\n'));
@@ -784,6 +833,7 @@ class CycleConfigModal extends Modal {
     plugin: PomodoroTaskPlugin;
     workDuration: number;
     shortBreakDuration: number;
+    useSeconds: boolean = false; // false = minutes, true = seconds
 
     constructor(app: App, plugin: PomodoroTaskPlugin) {
         super(app);
@@ -833,29 +883,58 @@ class CycleConfigModal extends Modal {
 
         // The actual input
         const input = inputRow.createEl('input', { type: 'number', cls: 'pomodoro-time-input' });
-        input.value = String(initialValue);
+        // If using seconds, convert minutes to seconds for display
+        input.value = String(this.useSeconds ? initialValue * 60 : initialValue);
 
-        inputRow.createSpan({ text: 'minutes', cls: 'pomodoro-unit' });
+        const unitSpan = inputRow.createSpan({ text: this.useSeconds ? 'seconds' : 'minutes', cls: 'pomodoro-unit pomodoro-unit-clickable' });
+        
+        // Make unit clickable to toggle between minutes and seconds
+        unitSpan.onclick = () => {
+            this.useSeconds = !this.useSeconds;
+            // Update all unit labels and convert values
+            this.contentEl.querySelectorAll('.pomodoro-unit-clickable').forEach(el => {
+                el.textContent = this.useSeconds ? 'seconds' : 'minutes';
+            });
+            // Convert all input values
+            this.contentEl.querySelectorAll('.pomodoro-time-input').forEach((inputEl: HTMLInputElement) => {
+                const currentVal = Number(inputEl.value);
+                if (!isNaN(currentVal) && currentVal > 0) {
+                    if (this.useSeconds) {
+                        // Was minutes, now seconds: multiply by 60
+                        inputEl.value = String(currentVal * 60);
+                    } else {
+                        // Was seconds, now minutes: divide by 60
+                        inputEl.value = String(Math.round(currentVal / 60));
+                    }
+                }
+            });
+        };
 
         input.onchange = () => {
-            const val = Number(input.value);
+            let val = Number(input.value);
             if (!isNaN(val) && val > 0) {
+                // If using seconds, convert to minutes for storage
+                if (this.useSeconds) {
+                    val = val / 60;
+                }
                 onChange(val);
                 // clear active chips
                 section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
             }
         };
 
-        // Presets
+        // Presets - these are always in minutes, but display converted if needed
         const presetsRow = section.createDiv({ cls: 'pomodoro-presets-row' });
         presets.forEach(val => {
-            const chip = presetsRow.createEl('span', { text: String(val), cls: 'pomodoro-preset-chip' });
+            const displayVal = this.useSeconds ? val * 60 : val;
+            const chip = presetsRow.createEl('span', { text: String(displayVal), cls: 'pomodoro-preset-chip' });
             if (val === initialValue) chip.addClass('is-active');
 
             chip.onclick = () => {
-                // Update Logic
+                // Update Logic - val is in minutes
                 onChange(val);
-                input.value = String(val);
+                // Display converted value
+                input.value = String(this.useSeconds ? val * 60 : val);
 
                 // Visual Selection
                 section.querySelectorAll('.pomodoro-preset-chip').forEach(el => el.removeClass('is-active'));
@@ -1786,14 +1865,11 @@ export class PomodoroView extends ItemView {
         const { state } = this.plugin.timerService;
         const view = container.createDiv({ cls: 'pomodoro-timer-view' });
 
-        // Top Navigation Bar (Back Arrow + Settings/Refresh)
+        // Top Navigation Bar (Settings/Refresh only - no back button while timer is running)
         const navBar = view.createDiv({ cls: 'pomodoro-timer-nav pomodoro-timer-navbar' });
 
-        // Navigation (Back Arrow)
-        const backBtn = navBar.createEl('button', { cls: 'clickable-icon pomodoro-back-btn pomodoro-transparent-btn' });
-        setIcon(backBtn, 'arrow-left');
-        backBtn.ariaLabel = "Return to task list";
-        backBtn.onclick = () => this.plugin.timerService.stopSession();
+        // Left side placeholder for layout balance
+        navBar.createDiv({ cls: 'pomodoro-nav-spacer' });
 
         // Right Side Controls (Settings + Refresh)
         const topControls = navBar.createDiv({ cls: 'pomodoro-stats-items-container' });
@@ -1956,10 +2032,16 @@ export class PomodoroView extends ItemView {
         cycleDiv.empty();
         const { state } = this.plugin.timerService;
 
-        const iconSpan = cycleDiv.createSpan();
+        // Main row with icon and value
+        const mainRow = cycleDiv.createDiv({ cls: 'pomodoro-cycle-main-row' });
+        
+        const iconSpan = mainRow.createSpan();
         iconSpan.innerText = '🍅';
 
-        const valueSpan = cycleDiv.createSpan({ cls: 'pomodoro-cycle-value' });
+        const valueSpan = mainRow.createSpan({ cls: 'pomodoro-cycle-value' });
+
+        // Status row (for "Ciclo X em execução")
+        const statusRow = cycleDiv.createDiv({ cls: 'pomodoro-cycle-status' });
 
         if (!state.taskFile) {
             valueSpan.innerText = '--';
@@ -1995,6 +2077,19 @@ export class PomodoroView extends ItemView {
             } else {
                 // 🍅 1
                 valueSpan.innerText = `${currentCount}`;
+            }
+
+            // Show current status based on state
+            if (state.state === 'WORK') {
+                if (state.cycleStarted && currentCount > 0) {
+                    statusRow.innerText = `Cycle ${currentCount} in progress`;
+                    statusRow.addClass('pomodoro-cycle-running');
+                } else if (currentCount > 0) {
+                    statusRow.innerText = `Cycle ${currentCount} ready`;
+                }
+            } else if (state.state === 'BREAK') {
+                statusRow.innerText = `☕ Break time`;
+                statusRow.addClass('pomodoro-cycle-break');
             }
 
             // Make it clickable to edit

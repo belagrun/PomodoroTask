@@ -253,16 +253,39 @@
 
 /* Cycle Info */
 .pomodoro-cycle-info {
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 4px;
     margin: 8px 0 24px 0;
     padding: 6px 16px;
     background-color: var(--background-primary-alt);
     border: 1px solid var(--background-modifier-border);
     border-radius: 20px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.pomodoro-cycle-main-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pomodoro-cycle-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.pomodoro-cycle-status.pomodoro-cycle-running {
+    color: var(--interactive-accent);
+    font-weight: 500;
+}
+
+.pomodoro-cycle-status.pomodoro-cycle-break {
+    color: var(--text-success, #4ade80);
+    font-weight: 500;
 }
 
 .pomodoro-cycle-label {
@@ -347,6 +370,17 @@
     font-size: 0.9em;
     color: var(--text-muted);
     margin-left: 8px;
+}
+
+.pomodoro-unit-clickable {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    transition: color 0.15s ease;
+}
+
+.pomodoro-unit-clickable:hover {
+    color: var(--text-accent);
 }
 
 .pomodoro-presets-row {

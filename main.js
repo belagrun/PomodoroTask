@@ -282,7 +282,7 @@ var TimerService = class {
   async saveState() {
     await this.plugin.saveAllData();
   }
-  startSession(task, type, overrides) {
+  async startSession(task, type, overrides, startPaused = true) {
     var _a, _b;
     let duration = 0;
     if (type === "WORK") {
@@ -299,17 +299,74 @@ var TimerService = class {
       taskFile: task.file.path,
       taskText: task.text,
       completedSubtasks: [],
+      cycleStarted: false,
       overrides
     };
-    if (type === "WORK") {
-      this.soundService.play(this.plugin.settings.soundWorkStart);
-    }
-    if (this.plugin.settings.autoStartPaused) {
+    if (startPaused) {
       this.state.pausedTime = Date.now();
+    } else {
+      if (type === "WORK") {
+        this.soundService.play(this.plugin.settings.soundWorkStart);
+        await this.incrementCycleOnStart();
+        this.state.cycleStarted = true;
+      }
     }
-    void this.saveState();
-    this.startTick();
-    void this.plugin.refreshView();
+    await this.saveState();
+    if (!startPaused) {
+      this.startTick();
+    }
+    await this.plugin.refreshView();
+  }
+  async incrementCycleOnStart() {
+    this.plugin.debugLogger.log("incrementCycleOnStart called");
+    const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+    if (!(file instanceof import_obsidian.TFile)) {
+      this.plugin.debugLogger.log("File not found:", this.state.taskFile);
+      return;
+    }
+    const content = await this.plugin.app.vault.read(file);
+    const lines = content.split("\n");
+    const lineIdx = this.state.taskLine;
+    if (lineIdx >= lines.length) {
+      this.plugin.debugLogger.log("Line index out of bounds");
+      return;
+    }
+    const line = lines[lineIdx];
+    this.plugin.debugLogger.log("Incrementing cycle on line:", line);
+    const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
+    const match = line.match(tomatoRegex);
+    let newLine = line;
+    if (match) {
+      const hasOpenBracket = match[1] === "[";
+      const hasCloseBracket = match[4] === "]";
+      const hasBrackets = hasOpenBracket && hasCloseBracket;
+      const currentCount = parseInt(match[2]);
+      const goalStr = match[3];
+      const newCount = currentCount + 1;
+      let newLabel = `\u{1F345}:: ${newCount}`;
+      if (goalStr) {
+        newLabel += `/${goalStr}`;
+      }
+      if (hasBrackets) {
+        newLabel = `[${newLabel}]`;
+      }
+      this.plugin.debugLogger.log("Cycle counter:", currentCount, "->", newCount, "Goal:", goalStr, "Brackets:", hasBrackets);
+      newLine = line.replace(match[0], newLabel);
+    } else {
+      const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
+      const checkboxMatch = line.match(checkboxRegex);
+      if (checkboxMatch) {
+        const checkboxPart = checkboxMatch[1];
+        const restOfLine = line.substring(checkboxPart.length);
+        newLine = `${checkboxPart}\u{1F345}:: 1 ${restOfLine}`;
+      } else {
+        newLine = `${line} \u{1F345}:: 1`;
+      }
+      this.plugin.debugLogger.log("No counter found, starting at 1");
+    }
+    lines[lineIdx] = newLine;
+    await this.plugin.app.vault.modify(file, lines.join("\n"));
+    this.plugin.debugLogger.log("Cycle incremented successfully");
   }
   stopSession() {
     this.clearInterval();
@@ -336,14 +393,19 @@ var TimerService = class {
       void this.plugin.refreshView();
     }
   }
-  resumeSession() {
+  async resumeSession() {
     if (this.state.state !== "IDLE" && this.state.pausedTime && this.state.startTime) {
+      if (this.state.state === "WORK" && !this.state.cycleStarted) {
+        this.soundService.play(this.plugin.settings.soundWorkStart);
+        await this.incrementCycleOnStart();
+        this.state.cycleStarted = true;
+      }
       const pauseDuration = Date.now() - this.state.pausedTime;
       this.state.startTime += pauseDuration;
       this.state.pausedTime = null;
-      void this.saveState();
+      await this.saveState();
       this.startTick();
-      void this.plugin.refreshView();
+      await this.plugin.refreshView();
     }
   }
   startTick() {
@@ -387,11 +449,11 @@ var TimerService = class {
       const nextType = this.state.state === "WORK" ? "BREAK" : "WORK";
       const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
       if (file instanceof import_obsidian.TFile) {
-        this.startSession({
+        void this.startSession({
           file,
           line: this.state.taskLine,
           text: this.state.taskText
-        }, nextType, this.state.overrides);
+        }, nextType, this.state.overrides, true);
       } else {
         this.stopSession();
       }
@@ -420,7 +482,16 @@ var TimerService = class {
       this.plugin.stats.totalWorkDuration += this.state.duration;
       await this.plugin.saveAllData();
       new import_obsidian.Notice("Pomodoro finished! Time for a break.");
-      this.stopSession();
+      const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+      if (file instanceof import_obsidian.TFile) {
+        void this.startSession({
+          file,
+          line: this.state.taskLine,
+          text: this.state.taskText
+        }, "BREAK", this.state.overrides, true);
+      } else {
+        this.stopSession();
+      }
     } else {
       const isLong = this.state.duration >= this.plugin.settings.longBreakDuration;
       if (isLong) {
@@ -428,8 +499,46 @@ var TimerService = class {
       } else {
         this.soundService.play(this.plugin.settings.soundBreakEnd);
       }
-      new import_obsidian.Notice("Break finished! Ready to work?");
-      this.stopSession();
+      const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
+      if (file instanceof import_obsidian.TFile) {
+        const hasMoreCycles = await this.checkHasMoreCycles(file);
+        if (hasMoreCycles) {
+          new import_obsidian.Notice("Break finished! Ready for next cycle.");
+          void this.startSession({
+            file,
+            line: this.state.taskLine,
+            text: this.state.taskText
+          }, "WORK", this.state.overrides, true);
+        } else {
+          new import_obsidian.Notice("All cycles completed! Great work!");
+          this.stopSession();
+        }
+      } else {
+        new import_obsidian.Notice("Break finished!");
+        this.stopSession();
+      }
+    }
+  }
+  async checkHasMoreCycles(file) {
+    try {
+      const content = await this.plugin.app.vault.read(file);
+      const lines = content.split("\n");
+      const lineIdx = this.state.taskLine;
+      if (lineIdx >= lines.length)
+        return false;
+      const line = lines[lineIdx];
+      const tomatoRegex = /🍅::\s*(\d+)(?:\s*\/\s*(\d+))?/;
+      const match = line.match(tomatoRegex);
+      if (match) {
+        const currentCount = parseInt(match[1]);
+        const goal = match[2] ? parseInt(match[2]) : null;
+        if (goal !== null && currentCount < goal) {
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
   }
   async logCompletion() {
@@ -454,90 +563,42 @@ var TimerService = class {
     }
     const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
     const match = line.match(tomatoRegex);
-    let newLine = line;
     let shouldComplete = false;
     if (match) {
-      const hasOpenBracket = match[1] === "[";
-      const hasCloseBracket = match[4] === "]";
-      const hasBrackets = hasOpenBracket && hasCloseBracket;
       const currentCount = parseInt(match[2]);
       const goalStr = match[3];
-      let goal = null;
-      const newCount = currentCount + 1;
-      let newLabel = `\u{1F345}:: ${newCount}`;
-      if (goalStr) {
-        newLabel += `/${goalStr}`;
-        goal = parseInt(goalStr);
-      }
-      if (hasBrackets) {
-        newLabel = `[${newLabel}]`;
-      }
-      this.plugin.debugLogger.log("Counter:", currentCount, "->", newCount, "Goal:", goal, "Brackets:", hasBrackets);
-      newLine = line.replace(match[0], newLabel);
-      if (goal !== null && newCount >= goal) {
+      const goal = goalStr ? parseInt(goalStr) : null;
+      this.plugin.debugLogger.log("Current count:", currentCount, "Goal:", goal);
+      if (goal !== null && currentCount >= goal) {
         this.plugin.debugLogger.log("Goal reached! Checking if task should be completed...");
         const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-        if (checkboxRegex.test(newLine)) {
+        if (checkboxRegex.test(line)) {
           shouldComplete = true;
           this.plugin.debugLogger.log("Task will be completed");
         } else {
           this.plugin.debugLogger.log("Task does not have unchecked checkbox");
         }
       }
-    } else {
-      const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
-      const checkboxMatch = line.match(checkboxRegex);
-      if (checkboxMatch) {
-        const checkboxPart = checkboxMatch[1];
-        const restOfLine = line.substring(checkboxPart.length);
-        newLine = `${checkboxPart}\u{1F345}:: 1 ${restOfLine}`;
-      } else {
-        newLine = `${line} \u{1F345}:: 1`;
-      }
-      this.plugin.debugLogger.log("No counter found, starting at 1");
     }
     this.plugin.debugLogger.log("shouldComplete:", shouldComplete);
     if (shouldComplete) {
       this.plugin.debugLogger.log("Calling completeTaskViaTasksAPI");
       await this.completeTaskViaTasksAPI(file, lineIdx, line);
-    } else {
-      lines[lineIdx] = newLine;
-      await this.plugin.app.vault.modify(file, lines.join("\n"));
     }
   }
   async completeTaskViaTasksAPI(file, lineIdx, originalLine) {
     var _a, _b;
     this.plugin.debugLogger.log("Attempting to complete task:", originalLine);
-    const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
-    const match = originalLine.match(tomatoRegex);
-    let lineWithUpdatedCounter = originalLine;
-    if (match) {
-      const hasOpenBracket = match[1] === "[";
-      const hasCloseBracket = match[4] === "]";
-      const hasBrackets = hasOpenBracket && hasCloseBracket;
-      const currentCount = parseInt(match[2]);
-      const goalStr = match[3];
-      const newCount = currentCount + 1;
-      let newLabel = `\u{1F345}:: ${newCount}`;
-      if (goalStr) {
-        newLabel += `/${goalStr}`;
-      }
-      if (hasBrackets) {
-        newLabel = `[${newLabel}]`;
-      }
-      lineWithUpdatedCounter = originalLine.replace(match[0], newLabel);
-      this.plugin.debugLogger.log("Bracket format preserved:", hasBrackets);
-    }
-    this.plugin.debugLogger.log("Line with updated counter:", lineWithUpdatedCounter);
+    this.plugin.debugLogger.log("Line to complete:", originalLine);
     const tasksPlugin = this.plugin.app.plugins.plugins["obsidian-tasks-plugin"];
     this.plugin.debugLogger.log("Tasks plugin found:", !!tasksPlugin);
     this.plugin.debugLogger.log("Tasks API available:", !!(tasksPlugin == null ? void 0 : tasksPlugin.apiV1));
     this.plugin.debugLogger.log("executeToggleTaskDoneCommand available:", !!((_a = tasksPlugin == null ? void 0 : tasksPlugin.apiV1) == null ? void 0 : _a.executeToggleTaskDoneCommand));
     if ((_b = tasksPlugin == null ? void 0 : tasksPlugin.apiV1) == null ? void 0 : _b.executeToggleTaskDoneCommand) {
-      const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(lineWithUpdatedCounter, file.path);
+      const result = tasksPlugin.apiV1.executeToggleTaskDoneCommand(originalLine, file.path);
       this.plugin.debugLogger.log("Tasks API result:", result);
-      this.plugin.debugLogger.log("Result different from input:", result !== lineWithUpdatedCounter);
-      if (result && result !== lineWithUpdatedCounter) {
+      this.plugin.debugLogger.log("Result different from input:", result !== originalLine);
+      if (result && result !== originalLine) {
         const content2 = await this.plugin.app.vault.read(file);
         const lines2 = content2.split("\n");
         const resultLines = result.split("\n");
@@ -570,16 +631,18 @@ var TimerService = class {
     const content = await this.plugin.app.vault.read(file);
     const lines = content.split("\n");
     const checkboxRegex = /^(\s*[-*+]\s*)\[ \]/;
-    const completedLine = lineWithUpdatedCounter.replace(checkboxRegex, "$1[x]");
+    const completedLine = originalLine.replace(checkboxRegex, "$1[x]");
     lines[lineIdx] = completedLine;
     await this.plugin.app.vault.modify(file, lines.join("\n"));
     this.plugin.debugLogger.log("File modified with direct replacement");
   }
 };
 var CycleConfigModal = class extends import_obsidian.Modal {
+  // false = minutes, true = seconds
   constructor(app, plugin) {
     var _a, _b;
     super(app);
+    this.useSeconds = false;
     this.plugin = plugin;
     const overrides = this.plugin.timerService.state.overrides;
     this.workDuration = (_a = overrides == null ? void 0 : overrides.workDuration) != null ? _a : this.plugin.settings.workDuration;
@@ -608,23 +671,43 @@ var CycleConfigModal = class extends import_obsidian.Modal {
     section.createDiv({ cls: "pomodoro-config-label", text: label });
     const inputRow = section.createDiv({ cls: "pomodoro-input-row" });
     const input = inputRow.createEl("input", { type: "number", cls: "pomodoro-time-input" });
-    input.value = String(initialValue);
-    inputRow.createSpan({ text: "minutes", cls: "pomodoro-unit" });
+    input.value = String(this.useSeconds ? initialValue * 60 : initialValue);
+    const unitSpan = inputRow.createSpan({ text: this.useSeconds ? "seconds" : "minutes", cls: "pomodoro-unit pomodoro-unit-clickable" });
+    unitSpan.onclick = () => {
+      this.useSeconds = !this.useSeconds;
+      this.contentEl.querySelectorAll(".pomodoro-unit-clickable").forEach((el) => {
+        el.textContent = this.useSeconds ? "seconds" : "minutes";
+      });
+      this.contentEl.querySelectorAll(".pomodoro-time-input").forEach((inputEl) => {
+        const currentVal = Number(inputEl.value);
+        if (!isNaN(currentVal) && currentVal > 0) {
+          if (this.useSeconds) {
+            inputEl.value = String(currentVal * 60);
+          } else {
+            inputEl.value = String(Math.round(currentVal / 60));
+          }
+        }
+      });
+    };
     input.onchange = () => {
-      const val = Number(input.value);
+      let val = Number(input.value);
       if (!isNaN(val) && val > 0) {
+        if (this.useSeconds) {
+          val = val / 60;
+        }
         onChange(val);
         section.querySelectorAll(".pomodoro-preset-chip").forEach((el) => el.removeClass("is-active"));
       }
     };
     const presetsRow = section.createDiv({ cls: "pomodoro-presets-row" });
     presets.forEach((val) => {
-      const chip = presetsRow.createEl("span", { text: String(val), cls: "pomodoro-preset-chip" });
+      const displayVal = this.useSeconds ? val * 60 : val;
+      const chip = presetsRow.createEl("span", { text: String(displayVal), cls: "pomodoro-preset-chip" });
       if (val === initialValue)
         chip.addClass("is-active");
       chip.onclick = () => {
         onChange(val);
-        input.value = String(val);
+        input.value = String(this.useSeconds ? val * 60 : val);
         section.querySelectorAll(".pomodoro-preset-chip").forEach((el) => el.removeClass("is-active"));
         chip.addClass("is-active");
       };
@@ -1297,10 +1380,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     const { state } = this.plugin.timerService;
     const view = container.createDiv({ cls: "pomodoro-timer-view" });
     const navBar = view.createDiv({ cls: "pomodoro-timer-nav pomodoro-timer-navbar" });
-    const backBtn = navBar.createEl("button", { cls: "clickable-icon pomodoro-back-btn pomodoro-transparent-btn" });
-    (0, import_obsidian.setIcon)(backBtn, "arrow-left");
-    backBtn.ariaLabel = "Return to task list";
-    backBtn.onclick = () => this.plugin.timerService.stopSession();
+    navBar.createDiv({ cls: "pomodoro-nav-spacer" });
     const topControls = navBar.createDiv({ cls: "pomodoro-stats-items-container" });
     const settingsBtn = topControls.createEl("button", { cls: "clickable-icon pomodoro-transparent-btn pomodoro-muted-btn" });
     (0, import_obsidian.setIcon)(settingsBtn, "settings");
@@ -1403,9 +1483,11 @@ var PomodoroView = class extends import_obsidian.ItemView {
   async populateCycleInfo(cycleDiv) {
     cycleDiv.empty();
     const { state } = this.plugin.timerService;
-    const iconSpan = cycleDiv.createSpan();
+    const mainRow = cycleDiv.createDiv({ cls: "pomodoro-cycle-main-row" });
+    const iconSpan = mainRow.createSpan();
     iconSpan.innerText = "\u{1F345}";
-    const valueSpan = cycleDiv.createSpan({ cls: "pomodoro-cycle-value" });
+    const valueSpan = mainRow.createSpan({ cls: "pomodoro-cycle-value" });
+    const statusRow = cycleDiv.createDiv({ cls: "pomodoro-cycle-status" });
     if (!state.taskFile) {
       valueSpan.innerText = "--";
       return;
@@ -1432,6 +1514,17 @@ var PomodoroView = class extends import_obsidian.ItemView {
         valueSpan.innerText = `${currentCount}/${goalStr}`;
       } else {
         valueSpan.innerText = `${currentCount}`;
+      }
+      if (state.state === "WORK") {
+        if (state.cycleStarted && currentCount > 0) {
+          statusRow.innerText = `Cycle ${currentCount} in progress`;
+          statusRow.addClass("pomodoro-cycle-running");
+        } else if (currentCount > 0) {
+          statusRow.innerText = `Cycle ${currentCount} ready`;
+        }
+      } else if (state.state === "BREAK") {
+        statusRow.innerText = `\u2615 Break time`;
+        statusRow.addClass("pomodoro-cycle-break");
       }
       valueSpan.addClass("pomodoro-clickable-value");
       valueSpan.title = "Click to edit pomodoro cycles";
