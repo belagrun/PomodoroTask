@@ -610,10 +610,13 @@ class TimerService {
             this.plugin.stats.totalWorkDuration += this.state.duration;
             await this.plugin.saveAllData();
 
-            // If the task goal was reached and it's NOT recurring, stop the timer
-            // Recurring tasks continue with a new cycle on the new instance
-            if (completionResult.goalReached && !completionResult.isRecurring) {
-                new Notice("All cycles completed! Task finished.");
+            // If the task goal was reached, stop the timer (even if a recurring task created a new instance).
+            if (completionResult.goalReached) {
+                if (completionResult.isRecurring) {
+                    new Notice("All cycles completed! New cycle created.");
+                } else {
+                    new Notice("All cycles completed! Task finished.");
+                }
                 this.clearInterval();
                 this.state.state = 'COMPLETED';
                 this.state.startTime = null;

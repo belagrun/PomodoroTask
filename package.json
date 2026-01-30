@@ -1,6 +1,6 @@
 {
   "name": "pomodoro-task",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Obsidian Pomodoro Task Plugin",
   "main": "main.js",
   "scripts": {

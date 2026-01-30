@@ -486,8 +486,12 @@ var TimerService = class {
       this.plugin.stats.completedSessions += 1;
       this.plugin.stats.totalWorkDuration += this.state.duration;
       await this.plugin.saveAllData();
-      if (completionResult.goalReached && !completionResult.isRecurring) {
-        new import_obsidian.Notice("All cycles completed! Task finished.");
+      if (completionResult.goalReached) {
+        if (completionResult.isRecurring) {
+          new import_obsidian.Notice("All cycles completed! New cycle created.");
+        } else {
+          new import_obsidian.Notice("All cycles completed! Task finished.");
+        }
         this.clearInterval();
         this.state.state = "COMPLETED";
         this.state.startTime = null;
@@ -1511,7 +1515,7 @@ var PomodoroView = class extends import_obsidian.ItemView {
     void this.populateCycleInfo(cycleInfoContainer);
     const controls = view.createDiv({ cls: "pomodoro-controls" });
     if (state.state === "COMPLETED") {
-      const backBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "\u2190 back to Tasks" });
+      const backBtn = controls.createEl("button", { cls: "pomodoro-btn pomodoro-btn-stop", text: "\u2190 back to tasks" });
       backBtn.onclick = () => this.plugin.timerService.stopSession();
     } else {
       if (state.pausedTime) {
