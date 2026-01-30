@@ -887,7 +887,7 @@ class TimerService {
     }
 
     private isWhenDoneRecurringTask(line: string): boolean {
-        return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]*\bwhen\s+done\b/iu.test(line);
+        return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]*\bwhen\s+done\b/iu.test(line);
     }
 }
 

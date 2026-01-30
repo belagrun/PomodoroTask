@@ -681,7 +681,7 @@ var TimerService = class {
     return false;
   }
   isWhenDoneRecurringTask(line) {
-    return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]*\bwhen\s+done\b/iu.test(line);
+    return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#[]*\bwhen\s+done\b/iu.test(line);
   }
 };
 var CycleConfigModal = class extends import_obsidian.Modal {
