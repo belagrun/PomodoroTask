@@ -621,6 +621,8 @@ var TimerService = class {
   async completeTaskViaTasksAPI(file, lineIdx, originalLine) {
     var _a, _b;
     this.plugin.debugLogger.log("Attempting to complete task:", originalLine);
+    const isWhenDoneRecurring = this.isWhenDoneRecurringTask(originalLine);
+    this.plugin.debugLogger.log("isWhenDoneRecurring:", isWhenDoneRecurring);
     this.plugin.debugLogger.log("Line to complete:", originalLine);
     const tasksPlugin = this.plugin.app.plugins.plugins["obsidian-tasks-plugin"];
     this.plugin.debugLogger.log("Tasks plugin found:", !!tasksPlugin);
@@ -635,7 +637,7 @@ var TimerService = class {
         const lines2 = content2.split("\n");
         const resultLines = result.split("\n");
         this.plugin.debugLogger.log("Result lines count:", resultLines.length);
-        const isRecurring = resultLines.length > 1;
+        const isRecurring = resultLines.length > 1 || isWhenDoneRecurring;
         const processedResultLines = resultLines.map((resultLine) => {
           if (/^\s*[-*+]\s*\[ \]/.test(resultLine)) {
             const tomatoMatch = resultLine.match(/(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/);
@@ -659,6 +661,14 @@ var TimerService = class {
         this.plugin.debugLogger.log("File modified successfully via Tasks API");
         return isRecurring;
       }
+      if (result && result === originalLine && isWhenDoneRecurring) {
+        this.plugin.debugLogger.log("Tasks API returned same line for when-done recurring task; no completion needed.");
+        return true;
+      }
+    }
+    if (isWhenDoneRecurring) {
+      this.plugin.debugLogger.log("Skipping direct completion for when-done recurring task.");
+      return true;
     }
     this.plugin.debugLogger.log("Falling back to direct modification...");
     const content = await this.plugin.app.vault.read(file);
@@ -669,6 +679,9 @@ var TimerService = class {
     await this.plugin.app.vault.modify(file, lines.join("\n"));
     this.plugin.debugLogger.log("File modified with direct replacement");
     return false;
+  }
+  isWhenDoneRecurringTask(line) {
+    return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]*\bwhen\s+done\b/iu.test(line);
   }
 };
 var CycleConfigModal = class extends import_obsidian.Modal {

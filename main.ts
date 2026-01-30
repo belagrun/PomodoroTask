@@ -794,6 +794,9 @@ class TimerService {
     async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string): Promise<boolean> {
         this.plugin.debugLogger.log('Attempting to complete task:', originalLine);
 
+        const isWhenDoneRecurring = this.isWhenDoneRecurringTask(originalLine);
+        this.plugin.debugLogger.log('isWhenDoneRecurring:', isWhenDoneRecurring);
+
         // Counter was already incremented at session start, so we use the line as-is
         this.plugin.debugLogger.log('Line to complete:', originalLine);
 
@@ -820,7 +823,7 @@ class TimerService {
                 // The result may contain multiple lines (if recurring task created new instance)
                 const resultLines = result.split('\n');
                 this.plugin.debugLogger.log('Result lines count:', resultLines.length);
-                const isRecurring = resultLines.length > 1;
+                const isRecurring = resultLines.length > 1 || isWhenDoneRecurring;
 
                 // Reset the tomato counter on the NEW task (the uncompleted one)
                 // The completed task keeps its counter, the new recurring task starts at 0
@@ -855,6 +858,16 @@ class TimerService {
                 this.plugin.debugLogger.log('File modified successfully via Tasks API');
                 return isRecurring;
             }
+
+            if (result && result === originalLine && isWhenDoneRecurring) {
+                this.plugin.debugLogger.log('Tasks API returned same line for when-done recurring task; no completion needed.');
+                return true;
+            }
+        }
+
+        if (isWhenDoneRecurring) {
+            this.plugin.debugLogger.log('Skipping direct completion for when-done recurring task.');
+            return true;
         }
 
         this.plugin.debugLogger.log('Falling back to direct modification...');
@@ -871,6 +884,10 @@ class TimerService {
         await this.plugin.app.vault.modify(file, lines.join('\n'));
         this.plugin.debugLogger.log('File modified with direct replacement');
         return false; // Fallback means no recurrence detected
+    }
+
+    private isWhenDoneRecurringTask(line: string): boolean {
+        return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]*\bwhen\s+done\b/iu.test(line);
     }
 }
 

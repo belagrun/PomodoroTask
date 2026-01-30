@@ -2,7 +2,41 @@
 
 Este documento contém padrões, soluções e lições aprendidas durante o desenvolvimento do plugin PomodoroTask para Obsidian.
 
----
+## ✅ Correção Crítica: Tarefas Recorrentes "when done" NÃO devem ser concluídas
+
+### Contexto do bug
+
+Em tarefas recorrentes com o sufixo **"when done"**, o plugin Tasks **não** conclui a tarefa nem recria nova instância se o clique não tiver efeito (segunda execução). O comportamento correto é: **nenhuma alteração no checkbox**, apenas ajustes internos do Pomodoro, se necessário.
+
+**Problema anterior:** o PomodoroTask concluía a tarefa automaticamente no fim do ciclo, diferente do clique manual do Tasks.
+
+### Solução aplicada (obrigatória)
+
+1. **Detectar recorrência "when done" na linha original**
+2. **Tratar como recorrente mesmo quando o Tasks API retorna apenas uma linha**
+3. **Nunca fazer fallback de conclusão direta nesses casos**
+
+```typescript
+private isWhenDoneRecurringTask(line: string): boolean {
+    return /🔁\s*every\s+[^📅⏳🛫✅➕🏁🔺⏫🔽#\[]*\bwhen\s+done\b/iu.test(line);
+}
+
+// Em completeTaskViaTasksAPI:
+const isWhenDoneRecurring = this.isWhenDoneRecurringTask(originalLine);
+
+// Se Tasks API não altera a linha, mas for when done:
+if (result && result === originalLine && isWhenDoneRecurring) return true;
+
+// Nunca completar diretamente no fallback:
+if (isWhenDoneRecurring) return true;
+```
+
+### Por que isso é obrigatório
+
+O Tasks plugin considera que tarefas recorrentes "when done" **podem não mudar a linha** em execuções subsequentes. Se o PomodoroTask marcar como concluída, ele quebra a compatibilidade com o comportamento esperado pelo usuário.
+
+**Regra:** para "when done", só o Tasks API deve decidir a conclusão. Se não houver mudança, **não concluímos**.
+
 
 ## 🎯 Problema: Esconder Scripts Dataview Até Execução Terminar
 
