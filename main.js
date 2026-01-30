@@ -485,7 +485,15 @@ var TimerService = class {
         }
       }
     } else {
-      newLine = `${line} \u{1F345}:: 1`;
+      const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
+      const checkboxMatch = line.match(checkboxRegex);
+      if (checkboxMatch) {
+        const checkboxPart = checkboxMatch[1];
+        const restOfLine = line.substring(checkboxPart.length);
+        newLine = `${checkboxPart}\u{1F345}:: 1 ${restOfLine}`;
+      } else {
+        newLine = `${line} \u{1F345}:: 1`;
+      }
       this.plugin.debugLogger.log("No counter found, starting at 1");
     }
     this.plugin.debugLogger.log("shouldComplete:", shouldComplete);

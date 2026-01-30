@@ -640,7 +640,18 @@ class TimerService {
             }
         } else {
             // No counter found, start a new one (without brackets)
-            newLine = `${line} 🍅:: 1`;
+            // Insert after checkbox instead of at the end
+            const checkboxRegex = /^(\s*[-*+]\s*\[.\]\s*)/;
+            const checkboxMatch = line.match(checkboxRegex);
+            if (checkboxMatch) {
+                // Insert 🍅:: 1 right after the checkbox
+                const checkboxPart = checkboxMatch[1];
+                const restOfLine = line.substring(checkboxPart.length);
+                newLine = `${checkboxPart}🍅:: 1 ${restOfLine}`;
+            } else {
+                // Fallback: append at end if no checkbox found
+                newLine = `${line} 🍅:: 1`;
+            }
             this.plugin.debugLogger.log('No counter found, starting at 1');
         }
 
