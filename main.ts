@@ -2065,7 +2065,7 @@ export class PomodoroView extends ItemView {
 
         if (state.state === 'COMPLETED') {
             // Only show Back button when completed
-            const backBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: '← back to Tasks' });
+            const backBtn = controls.createEl('button', { cls: 'pomodoro-btn pomodoro-btn-stop', text: '← back to tasks' });
             backBtn.onclick = () => this.plugin.timerService.stopSession();
         } else {
             // Pause/Resume Button
