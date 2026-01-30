@@ -455,7 +455,12 @@ var TimerService = class {
           text: this.state.taskText
         }, nextType, this.state.overrides, true);
       } else {
-        this.stopSession();
+        this.clearInterval();
+        this.state.state = "COMPLETED";
+        this.state.startTime = null;
+        this.state.pausedTime = null;
+        void this.saveState();
+        void this.plugin.refreshView();
       }
     }
   }
@@ -477,10 +482,20 @@ var TimerService = class {
     this.clearInterval();
     if (this.state.state === "WORK") {
       this.soundService.play(this.plugin.settings.soundWorkEnd);
-      await this.logCompletion();
+      const completionResult = await this.logCompletion();
       this.plugin.stats.completedSessions += 1;
       this.plugin.stats.totalWorkDuration += this.state.duration;
       await this.plugin.saveAllData();
+      if (completionResult.goalReached && !completionResult.isRecurring) {
+        new import_obsidian.Notice("All cycles completed! Task finished.");
+        this.clearInterval();
+        this.state.state = "COMPLETED";
+        this.state.startTime = null;
+        this.state.pausedTime = null;
+        void this.saveState();
+        void this.plugin.refreshView();
+        return;
+      }
       new import_obsidian.Notice("Pomodoro finished! Time for a break.");
       const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
       if (file instanceof import_obsidian.TFile) {
@@ -490,7 +505,13 @@ var TimerService = class {
           text: this.state.taskText
         }, "BREAK", this.state.overrides, false);
       } else {
-        this.stopSession();
+        new import_obsidian.Notice("Pomodoro finished!");
+        this.clearInterval();
+        this.state.state = "COMPLETED";
+        this.state.startTime = null;
+        this.state.pausedTime = null;
+        void this.saveState();
+        void this.plugin.refreshView();
       }
     } else {
       this.soundService.play(this.plugin.settings.soundBreakEnd);
@@ -555,20 +576,20 @@ var TimerService = class {
     const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
     if (!(file instanceof import_obsidian.TFile)) {
       this.plugin.debugLogger.log("File not found:", this.state.taskFile);
-      return;
+      return { goalReached: false, isRecurring: false };
     }
     const content = await this.plugin.app.vault.read(file);
     const lines = content.split("\n");
     const lineIdx = this.state.taskLine;
     if (lineIdx >= lines.length) {
       this.plugin.debugLogger.log("Line index out of bounds");
-      return;
+      return { goalReached: false, isRecurring: false };
     }
     const line = lines[lineIdx];
     this.plugin.debugLogger.log("Current line:", line);
     if (!line.includes(this.state.taskText.substring(0, 5))) {
       new import_obsidian.Notice("Task line changed? Could not log time to the exact line.");
-      return;
+      return { goalReached: false, isRecurring: false };
     }
     const tomatoRegex = /(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/;
     const match = line.match(tomatoRegex);
@@ -592,8 +613,10 @@ var TimerService = class {
     this.plugin.debugLogger.log("shouldComplete:", shouldComplete);
     if (shouldComplete) {
       this.plugin.debugLogger.log("Calling completeTaskViaTasksAPI");
-      await this.completeTaskViaTasksAPI(file, lineIdx, line);
+      const isRecurring = await this.completeTaskViaTasksAPI(file, lineIdx, line);
+      return { goalReached: true, isRecurring };
     }
+    return { goalReached: false, isRecurring: false };
   }
   async completeTaskViaTasksAPI(file, lineIdx, originalLine) {
     var _a, _b;
@@ -612,6 +635,7 @@ var TimerService = class {
         const lines2 = content2.split("\n");
         const resultLines = result.split("\n");
         this.plugin.debugLogger.log("Result lines count:", resultLines.length);
+        const isRecurring = resultLines.length > 1;
         const processedResultLines = resultLines.map((resultLine) => {
           if (/^\s*[-*+]\s*\[ \]/.test(resultLine)) {
             const tomatoMatch = resultLine.match(/(\[)?🍅::\s*(\d+)(?:\s*\/\s*(\d+))?(\])?/);
@@ -633,7 +657,7 @@ var TimerService = class {
         lines2.splice(lineIdx, 1, ...processedResultLines);
         await this.plugin.app.vault.modify(file, lines2.join("\n"));
         this.plugin.debugLogger.log("File modified successfully via Tasks API");
-        return;
+        return isRecurring;
       }
     }
     this.plugin.debugLogger.log("Falling back to direct modification...");
@@ -644,6 +668,7 @@ var TimerService = class {
     lines[lineIdx] = completedLine;
     await this.plugin.app.vault.modify(file, lines.join("\n"));
     this.plugin.debugLogger.log("File modified with direct replacement");
+    return false;
   }
 };
 var CycleConfigModal = class extends import_obsidian.Modal {

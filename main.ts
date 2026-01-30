@@ -569,8 +569,13 @@ class TimerService {
                 }, nextType, this.state.overrides, true);
             } else {
                 // If file is missing (deleted?), we can't easily restart with context.
-                // Just stop.
-                this.stopSession();
+                // Stay on COMPLETED state instead of returning to main screen
+                this.clearInterval();
+                this.state.state = 'COMPLETED';
+                this.state.startTime = null;
+                this.state.pausedTime = null;
+                void this.saveState();
+                void this.plugin.refreshView();
             }
         }
     }
@@ -599,11 +604,24 @@ class TimerService {
             // Play Work End Sound
             this.soundService.play(this.plugin.settings.soundWorkEnd);
 
-            await this.logCompletion();
+            const completionResult = await this.logCompletion();
             // Update Stats
             this.plugin.stats.completedSessions += 1;
             this.plugin.stats.totalWorkDuration += this.state.duration;
             await this.plugin.saveAllData();
+
+            // If the task goal was reached and it's NOT recurring, stop the timer
+            // Recurring tasks continue with a new cycle on the new instance
+            if (completionResult.goalReached && !completionResult.isRecurring) {
+                new Notice("All cycles completed! Task finished.");
+                this.clearInterval();
+                this.state.state = 'COMPLETED';
+                this.state.startTime = null;
+                this.state.pausedTime = null;
+                void this.saveState();
+                void this.plugin.refreshView();
+                return;
+            }
 
             new Notice("Pomodoro finished! Time for a break.");
 
@@ -616,8 +634,14 @@ class TimerService {
                     text: this.state.taskText
                 }, 'BREAK', this.state.overrides, false);
             } else {
-                // File missing, can't continue
-                this.stopSession();
+                // File missing, stay on COMPLETED state
+                new Notice("Pomodoro finished!");
+                this.clearInterval();
+                this.state.state = 'COMPLETED';
+                this.state.startTime = null;
+                this.state.pausedTime = null;
+                void this.saveState();
+                void this.plugin.refreshView();
             }
 
         } else {
@@ -698,14 +722,14 @@ class TimerService {
         }
     }
 
-    async logCompletion() {
+    async logCompletion(): Promise<{ goalReached: boolean, isRecurring: boolean }> {
         this.plugin.debugLogger.log('logCompletion called');
 
         // Reload file content to get fresh state
         const file = this.plugin.app.vault.getAbstractFileByPath(this.state.taskFile);
         if (!(file instanceof TFile)) {
             this.plugin.debugLogger.log('File not found:', this.state.taskFile);
-            return;
+            return { goalReached: false, isRecurring: false };
         }
 
         const content = await this.plugin.app.vault.read(file);
@@ -715,7 +739,7 @@ class TimerService {
         // Check boundaries
         if (lineIdx >= lines.length) {
             this.plugin.debugLogger.log('Line index out of bounds');
-            return;
+            return { goalReached: false, isRecurring: false };
         }
 
         const line = lines[lineIdx];
@@ -724,7 +748,7 @@ class TimerService {
         // Check if line looks like our task (basic check)
         if (!line.includes(this.state.taskText.substring(0, 5))) {
             new Notice("Task line changed? Could not log time to the exact line.");
-            return;
+            return { goalReached: false, isRecurring: false };
         }
 
         // Regex to find [🍅:: N], [🍅:: N/M], 🍅:: N, or 🍅:: N/M
@@ -759,12 +783,15 @@ class TimerService {
         // If task should be completed, use Tasks API
         if (shouldComplete) {
             this.plugin.debugLogger.log('Calling completeTaskViaTasksAPI');
-            await this.completeTaskViaTasksAPI(file, lineIdx, line);
+            const isRecurring = await this.completeTaskViaTasksAPI(file, lineIdx, line);
+            return { goalReached: true, isRecurring };
         }
         // No need to update the file - counter was already incremented at session start
+        
+        return { goalReached: false, isRecurring: false };
     }
 
-    async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string) {
+    async completeTaskViaTasksAPI(file: TFile, lineIdx: number, originalLine: string): Promise<boolean> {
         this.plugin.debugLogger.log('Attempting to complete task:', originalLine);
 
         // Counter was already incremented at session start, so we use the line as-is
@@ -793,6 +820,7 @@ class TimerService {
                 // The result may contain multiple lines (if recurring task created new instance)
                 const resultLines = result.split('\n');
                 this.plugin.debugLogger.log('Result lines count:', resultLines.length);
+                const isRecurring = resultLines.length > 1;
 
                 // Reset the tomato counter on the NEW task (the uncompleted one)
                 // The completed task keeps its counter, the new recurring task starts at 0
@@ -825,7 +853,7 @@ class TimerService {
 
                 await this.plugin.app.vault.modify(file, lines.join('\n'));
                 this.plugin.debugLogger.log('File modified successfully via Tasks API');
-                return;
+                return isRecurring;
             }
         }
 
@@ -842,6 +870,7 @@ class TimerService {
         lines[lineIdx] = completedLine;
         await this.plugin.app.vault.modify(file, lines.join('\n'));
         this.plugin.debugLogger.log('File modified with direct replacement');
+        return false; // Fallback means no recurrence detected
     }
 }
 
